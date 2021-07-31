@@ -1,0 +1,130 @@
+#################
+# RTM interpreter
+#  dotnet run --project ../. rtm_interpreter.rufc --specializer --input=vtab_static.in
+#################
+
+define QS       1
+define QF       6
+
+define LEFT    -1
+define STAY    -2
+define RIGHT   -3
+define SLASH   -4
+
+define BLANK    2
+
+proc main(inout stack left, inout int s, inout stack right,
+          const int[] q1, const int[] s1, const int[] s2, const int[] q2,
+          in int pc, const int PC_MAX)
+
+local int q=QS
+
+  lab0:
+    entry
+    goto lab1
+
+  lab1:
+    fi q = QS from lab0 else lab3
+    call inst(q,left,s,right,q1,s1,s2,q2,pc);
+    pc += 1
+    if pc = PC_MAX goto lab2 else lab3
+
+  lab2:
+    from lab1
+    pc ^= PC_MAX
+    goto lab3
+
+  lab3:
+    fi pc = 0 from lab2 else lab1
+    if q = QF goto lab4 else lab1
+
+  lab4:
+    fi pc = 0 from lab3
+    exit
+
+delocal int q=QF
+
+
+# Writes s to the tape
+proc pushtape(inout int s, inout stack stk)
+
+  lab0:
+    entry
+    if (empty stk) && (s = BLANK) goto lab1 else lab2
+  
+  lab1:
+    from lab0 
+    s ^= BLANK
+    goto lab3
+
+  lab2:
+    from lab0
+    push s stk
+    goto lab3
+
+  lab3:
+    fi empty stk from lab1 else lab2
+    exit
+
+# Executes the symbol rule and the move rule
+proc inst(inout int q, inout stack left, inout int s, inout stack right,
+          const int[] q1, const int[] s1, const int[] s2, const int[] q2, const int pc)
+
+  ## SYMBOL RULE ##
+  labS0:
+    entry
+    if (q = q1[pc]) && (s = s1[pc]) goto labS1 else labS2
+
+  labS1:
+    from labS0
+    q += q2[pc] - q1[pc];
+    s += s2[pc] - s1[pc]
+    goto labS2
+
+  labS2:
+    fi (q = q2[pc]) && (s = s2[pc]) from labS1 else labS0
+    goto labM0
+  
+  ## MOVE RULE ##
+  labM0:
+    from labS2
+    if (q = q1[pc]) && (s1[pc] = SLASH) goto labM1 else labM2
+
+  labM1:
+    from labM0
+    q += q2[pc] - q1[pc]
+    goto labMR0
+
+    ### Shall we move to the RIGHT?
+    labMR0:
+      from labM1
+      if s2[pc] = RIGHT goto labMR1 else labMR2
+
+    labMR1:
+      from labMR0
+      call pushtape(s, left);
+      uncall pushtape(s, right)
+      goto labMR2
+
+    labMR2:
+      fi s2[pc] = RIGHT from labMR1 else labMR0
+      goto labML0
+
+    ### Shall we move to the LEFT?
+    labML0:
+      from labMR2
+      if s2[pc] = LEFT goto labML1 else labML2
+
+    labML1:
+      from labML0
+      call pushtape(s, right);
+      uncall pushtape(s, left)
+      goto labML2
+
+    labML2:
+      fi s2[pc] = LEFT from labML1 else labML0
+      goto labM2
+
+  labM2:
+    fi (q = q2[pc]) && (s1[pc] = SLASH) from labML2 else labM0
+    exit
