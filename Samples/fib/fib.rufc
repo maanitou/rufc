@@ -1,0 +1,41 @@
+# Calculates the n'th and (n-1)'th Fibonacci numbers.
+#
+# Examples:
+# dotnet run --project ../. fib.rufc --interpreter n=10 a=0 b=0
+
+proc main(out int a, out int b, in int n)
+  lab0:
+    entry
+    call fib(n, a, b)
+    goto lab1
+
+  lab1:
+    from lab0
+    exit
+
+proc fib(in int n, out int x1, out int x2)
+  local int v=0
+  
+  lab0:
+    entry
+    if n=0 goto lab1 else lab2
+  
+  lab1:
+    from lab0
+    x1 += 1;
+    x2 += 1
+    goto lab3
+
+  lab2:
+    from lab0
+    n -= 1;
+    call fib(n, x1,x2);
+    x1 += x2;
+    x1 <=> x2
+    goto lab3
+
+  lab3:
+    fi x1=x2 from lab1 else lab2
+    exit
+
+  delocal int v=0

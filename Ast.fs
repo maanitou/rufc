@@ -106,9 +106,7 @@ type Operator =
 type AssignmentOperator = { Symb: string; Op: AssignOp }
 
 let assignmentOperators =
-    [ { Symb = "+="; Op = AssignAdd }
-      { Symb = "-="; Op = AssignSub }
-      { Symb = "^="; Op = AssignXor } ]
+    [ { Symb = "+="; Op = AssignAdd }; { Symb = "-="; Op = AssignSub }; { Symb = "^="; Op = AssignXor } ]
 
 type BinaryOperator = { Symb: string; Prec: int; Op: BinOp }
 

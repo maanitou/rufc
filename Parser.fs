@@ -18,13 +18,13 @@ let str_ws s = pstring s .>> ws
 
 let keywords =
     [
-        [ "push"; "pop"; "skip"; "call"; "uncall"; "write" ]; // statements
-        [ "entry"; "exit"; "if"; "fi"; "goto"; "from"; "else" ]; // control
-        [ "not"; "top"; "empty" ]; // expressions
-        [ "int"; "stack" ]; // type
-        [ "proc"; "const"; "in"; "out"; "inout" ]; // functions
-        [ "define"; "local"; "delocal"; "blocal"; "bdelocal" ] // variables and constants
-    ]
+        [ "push"; "pop"; "skip"; "call"; "uncall"; "write" ] // statements
+        [ "entry"; "exit"; "if"; "fi"; "goto"; "from"; "else" ] // control
+        [ "not"; "top"; "empty" ] // expressions
+        [ "int"; "stack" ] // type
+        [ "proc"; "const"; "in"; "out"; "inout" ] // functions
+        [ "define"; "local"; "delocal"; "blocal"; "bdelocal" ]
+    ] // variables and constants
     |> List.concat
 
 let isKeyword str = List.contains str keywords

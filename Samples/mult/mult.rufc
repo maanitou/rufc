@@ -1,0 +1,64 @@
+# Multiplication of two odd numbers a,b
+#
+# Examples:
+#
+# Specialization of mult wrt a=9
+# > dotnet run --project ../. mult.rufc --specializer a=9
+#
+# Forward evaluation of the specialized program
+# > dotnet run --project ../. mult_pe.rufc --interpreter b=13 prod=0
+#
+# Backward evaluation of the specialized program (method 1)
+# > dotnet run --project ../. mult_pe.rufc --interpreter --backward b=13 prod=117
+#
+# Backward evaluation of the specialized program (method 2)
+# > dotnet run --project ../. mult_pe.rufc --inverter 
+# > dotnet run --project ../. mult_pe_inv.rufc --interpreter b=13 prod=117 
+
+
+proc main(in int a, inout int b, out int prod)
+local int v=0, int t=0
+main:
+  entry
+  goto lab1
+
+lab1:
+  fi prod = 0 from main else lab5
+  if a%2 = 1 goto lab2 else lab3
+
+lab2:
+  from lab1
+  prod += b;
+  t += a / 2;
+  a -= t + 1; 
+  t -= a
+  goto lab4
+
+lab3:
+  from lab1
+  t += a / 2;
+  a -= t;
+  t -= a
+  goto lab4
+
+lab4:
+  fi prod >= b from lab2 else lab3
+  skip
+  if a=0 goto lab6 else lab5
+
+lab5:
+  from lab4
+  v += b; b += v; v -= b /2
+  goto lab1
+
+lab6:
+  fi prod < b+b from lab4 else lab6
+  v += b/2; b -= v; v -= b
+  if b%2 = 1 goto lab7 else lab6
+
+lab7:
+  from lab6
+  skip
+  exit
+  
+delocal int v=0, int t=0
