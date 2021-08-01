@@ -1,5 +1,9 @@
 module Ast
 
+type Binding =
+  | S   // static binding
+  | D   // dynamic binding
+
 type BinOp =
     | Add
     | Sub

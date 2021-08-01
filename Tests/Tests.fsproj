@@ -12,6 +12,7 @@
     <Compile Include="ParserTest.fs" />
     <Compile Include="InverterTest.fs" />
     <Compile Include="InterpreterTest.fs" />
+    <Compile Include="DivisorTest.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

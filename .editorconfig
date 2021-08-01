@@ -1,6 +1,6 @@
 [*.fs]
 indent_size=4
-max_line_length=120
+max_line_length=100
 fsharp_semicolon_at_end_of_line=false
 fsharp_space_before_parameter=true
 fsharp_space_before_lowercase_invocation=true
@@ -18,13 +18,13 @@ fsharp_max_infix_operator_expression=50
 fsharp_max_record_width=40
 fsharp_max_record_number_of_items=1
 fsharp_record_multiline_formatter=character_width
-fsharp_max_array_or_list_width=120
+fsharp_max_array_or_list_width=0
 fsharp_max_array_or_list_number_of_items=100
 fsharp_array_or_list_multiline_formatter=number_of_items
 fsharp_max_value_binding_width=40
 fsharp_max_function_binding_width=40
 fsharp_max_dot_get_expression_width=50
-fsharp_multiline_block_brackets_on_same_column=true
+fsharp_multiline_block_brackets_on_same_column=false
 fsharp_newline_between_type_definition_and_members=false
 fsharp_keep_if_then_in_same_line=false
 fsharp_max_elmish_width=40

@@ -1,0 +1,58 @@
+# Multiplication of two odd numbers a,b
+# mult: a,b -> b,prod with v, t
+# Input: a, b - odd numbers
+# Output: b, prod 
+
+proc main(in int a, inout int b, out int prod)
+
+main:
+  entry
+  goto lab1
+
+lab1:
+  fi prod = 0 from main else lab5
+  if a%2 = 1 goto lab2 else lab3
+
+lab2:
+  from lab1
+  blocal int t0=0;
+  prod += b;
+  t0 += a / 2;
+  a -= t0 + 1; 
+  t0 -= a;
+  bdelocal int t0=0  
+  goto lab4
+
+lab3:
+  from lab1
+  blocal int t1=0;
+  t1 += a / 2;
+  a -= t1;
+  t1 -= a;
+  bdelocal int t1=0
+  goto lab4
+
+lab4:
+  fi prod >= b from lab2 else lab3
+  skip
+  if a=0 goto lab6 else lab5
+
+lab5:
+  from lab4
+  blocal int v0=0;
+  v0 += b; b += v0; v0 -= b /2;
+  bdelocal int v0=0
+  goto lab1
+
+lab6:
+  fi prod < b+b from lab4 else lab6
+  blocal int v1=0;
+  v1 += b/2; b -= v1; v1 -= b;
+  bdelocal int v1=0
+  if b%2 = 1 goto lab7 else lab6
+
+lab7:
+  from lab6
+  skip
+  exit
+  

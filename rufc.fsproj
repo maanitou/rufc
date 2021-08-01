@@ -13,6 +13,7 @@
     <Compile Include="Parser.fs" />
     <Compile Include="Inverter.fs" />
     <Compile Include="Interpreter.fs" />
+    <Compile Include="Divisor.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

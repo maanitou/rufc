@@ -1,0 +1,75 @@
+# Schrödinger Wave Equations
+# Forward: dotnet run --project ../. schrodinger.rufc --interpreter --input=vtab_schrodinger.in 
+# Backward: dotnet run --project ../. schrodinger.rufc --interpreter --backward --input=vtab_schrodinger_forward.out  
+# Forward and backward output in vtab_forward.out, vtab_backward.out
+
+proc main (inout int[] X, out int[] Y,  const int epsilon, const int[] alpha, const int maxn)
+local int i=0, int n=0
+# Entry block
+main:
+  entry
+  goto labM0
+
+# Main loop
+labM0:
+  from main
+  goto labM1
+
+labM1:
+  fi n=0 from labM0 else labM2
+  if n=maxn goto labM3 else labX0
+
+# Update the real part
+labX0:
+  from labM1
+  goto labX1
+
+labX1:
+  fi i=0 from labX0 else labX2
+  if i=128 goto labX3 else labX2
+
+labX2:
+    from labX1
+    X[i] += alpha[i] */ Y[i];
+    X[i] -= epsilon */ (Y[(i+1)%128] + Y[(i-1)%128]);
+    i += 1
+    goto labX1
+
+labX3:
+  from labX1
+  i -= 128
+  goto labY0
+
+# Update the imaginary part
+labY0:
+  from labX3
+  goto labY1
+
+labY1:
+  fi i=0 from labY0 else labY2
+  if i=128 goto labY3 else labY2
+
+labY2:
+    from labY1
+    Y[i] -= alpha[i] */ X[i];
+    Y[i] += epsilon */ (X[(i+1)%128] + X[(i-1)%128]);
+    i += 1
+    goto labY1
+
+labY3:
+  from labY1
+  i -= 128
+  goto labM2  
+
+labM2:
+  from labY3
+  n += 1;
+  write X;
+  write Y
+  goto labM1 # jump back to main loop
+
+# Exit block
+labM3:
+  from labM1
+  exit
+delocal int i=0, int n=maxn
