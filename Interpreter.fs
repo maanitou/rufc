@@ -3,6 +3,7 @@ module Interpreter
 open Ast
 open SymTab
 open Tools
+open Inverter
 
 exception InterpreterError of string
 
@@ -111,7 +112,35 @@ and evalStmt (ftab: SymTab<Proc>) (vtab: SymTab<Qualifier * Value>) stmt : SymTa
         | None -> error $"Call: procedure {procName} is not defined"
         | Some proc -> evalProc ftab vtab concreteArgs proc
 
-    | Uncall (procName, concreteArgs) -> error "not implemented"
+    | Uncall (procName, concreteArgs) ->
+        (* Uncalling is equivalent to Calling the inverse procedure *)
+        match tryLookup procName ftab with
+        | None -> raise (InterpreterError $"Uncall: procedure {procName} is not defined")
+        | Some proc ->
+
+            let procNameInv = invertProcName procName
+
+            match tryLookup procNameInv ftab with
+            | None ->
+                (* The inversed procedure has not been added to ftab yet *)
+
+                (* NOTE: The Inverter has two purposes:
+                  1) Invert programs in order to produce an inverted program that can be evaluated as a spearate entity
+                  2) Uncall a procedure by calling its inverse. *)
+
+                let local = true // We are uncalling a proc, not inverting a program.
+
+                let procInv = invertProc local proc
+
+                let ftab' =
+                    bind (procInv |> getProcName) procInv ftab
+
+                evalStmt ftab' vtab (Call(procNameInv, concreteArgs))
+
+            | Some _ ->
+                (* If the inversed procedure has already been added to ftab, then call it *)
+                evalStmt ftab vtab (Call(procNameInv, concreteArgs))
+
 
     | Push (lval, (Var stackName)) ->
         match lookup stackName vtab with
