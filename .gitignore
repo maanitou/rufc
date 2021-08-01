@@ -4,6 +4,5 @@ Tests/bin/
 Tests/obj/
 
 .vscode/
-.editorconfig
 .fake
 .ionide
