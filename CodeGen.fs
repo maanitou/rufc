@@ -119,10 +119,7 @@ let ppProc ntab (Proc (pid, pars, locals, blocks, delocals)) =
             "delocal "
             + (delocals |> List.map ppLocal |> String.concat ", ")
 
-    [ $"proc {pid}({parsStr})"
-      $"{tab}{localStr}"
-      $"{blocksStr}"
-      $"{tab}{delocalStr}" ]
+    [ $"proc {pid}({parsStr})"; $"{tab}{localStr}"; $"{blocksStr}"; $"{tab}{delocalStr}" ]
     |> concatNotEmpty "\n"
 
 
@@ -175,6 +172,4 @@ let ppList lst =
     |> String.concat "\n"
 
 let pprintSet (set: Set<'a>) =
-    "["
-    + String.concat "," (Set.map string set)
-    + "]"
+    "[" + String.concat "," (Set.map string set) + "]"

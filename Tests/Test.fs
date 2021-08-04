@@ -8,7 +8,7 @@ open Parser
 
 exception TestError of string
 
-let root = Path.Join("..","..","..","..")
+let root = Path.Join("..", "..", "..", "..")
 
 let parse<'a> (p: Parser<'a>) input =
     match runParserOnString p [] "" input with

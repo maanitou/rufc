@@ -25,7 +25,8 @@ let blockListToBlockMap (blocks: Block list) : Map<Label, Block> =
             | Block (lab, _, _, _) as blk -> (lab, blk))
     |> Map.ofList
 
-let blockMapToBlockList (map: Map<Label, Block>) : Block list = map |> Map.toList |> List.unzip |> snd
+let blockMapToBlockList (map: Map<Label, Block>) : Block list =
+    map |> Map.toList |> List.unzip |> snd
 
 
 /// Merge the statements of two blocks when there is a one-way link between lab1 to lab2
@@ -209,7 +210,7 @@ let reorderBlocks blocks =
         else
             element :: list
 
-    let rec loop (pending : Label list) (seenBefore: Label list) =
+    let rec loop (pending: Label list) (seenBefore: Label list) =
         match pending with
         | [] -> seenBefore
         | lab :: rest ->
@@ -222,7 +223,8 @@ let reorderBlocks blocks =
                 | Exit -> loop rest (addUnique lab seenBefore)
                 | Goto dest -> loop (rest @ [ dest ]) (addUnique lab seenBefore)
                 | IfGoto (_, dest) -> loop (rest @ [ dest ]) (addUnique lab seenBefore)
-                | IfGotoElse (_, destT, destF) -> loop (rest @ [ destT; destF ]) (addUnique lab seenBefore)
+                | IfGotoElse (_, destT, destF) ->
+                    loop (rest @ [ destT; destF ]) (addUnique lab seenBefore)
 
     let orderedLabels = loop [ entryLabel ] [] |> List.rev
 

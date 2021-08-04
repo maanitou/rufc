@@ -4,4 +4,3 @@ module Program
 let main _ =
     printfn "Usage: dotnet test"
     0
-

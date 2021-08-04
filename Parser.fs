@@ -17,14 +17,12 @@ let ws = pcomment
 let str_ws s = pstring s .>> ws
 
 let keywords =
-    [
-        [ "push"; "pop"; "skip"; "call"; "uncall"; "write" ] // statements
-        [ "entry"; "exit"; "if"; "fi"; "goto"; "from"; "else" ] // control
-        [ "not"; "top"; "empty" ] // expressions
-        [ "int"; "stack" ] // type
-        [ "proc"; "const"; "in"; "out"; "inout" ] // functions
-        [ "define"; "local"; "delocal"; "blocal"; "bdelocal" ]
-    ] // variables and constants
+    [ [ "push"; "pop"; "skip"; "call"; "uncall"; "write" ] // statements
+      [ "entry"; "exit"; "if"; "fi"; "goto"; "from"; "else" ] // control
+      [ "not"; "top"; "empty" ] // expressions
+      [ "int"; "stack" ] // type
+      [ "proc"; "const"; "in"; "out"; "inout" ] // functions
+      [ "define"; "local"; "delocal"; "blocal"; "bdelocal" ] ] // variables and constants
     |> List.concat
 
 let isKeyword str = List.contains str keywords
@@ -53,7 +51,9 @@ let pidentifierString: Parser<string> =
 
         let reply =
             stream
-            |> (many1Satisfy2 (fun c -> c = '_' || isAsciiLetter c) (fun c -> c = '_' || isAsciiLetter c || isDigit c)
+            |> (many1Satisfy2
+                    (fun c -> c = '_' || isAsciiLetter c)
+                    (fun c -> c = '_' || isAsciiLetter c || isDigit c)
                 .>> ws)
 
         if (reply.Status = Ok && reply.Result |> isKeyword) then
@@ -102,7 +102,9 @@ let pexpr: Parser<Expr> = opp.ExpressionParser
 binaryOperators
 |> List.iter
     (fun op ->
-        opp.AddOperator(InfixOperator(op.Symb, ws, op.Prec, Associativity.Left, (fun x y -> BinOp(op.Op, x, y)))))
+        opp.AddOperator(
+            InfixOperator(op.Symb, ws, op.Prec, Associativity.Left, (fun x y -> BinOp(op.Op, x, y)))
+        ))
 
 // Assign lowest precedence to operator `not`.
 opp.AddOperator(PrefixOperator("not", ws, 1, true, Not))

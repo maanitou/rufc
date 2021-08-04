@@ -11,7 +11,7 @@ open InputParser
 [<EntryPoint>]
 let main argv =
 
-    if (Array.length argv = 0) then
+    if (Array.isEmpty argv) then
         [ "usage\n"
           "dotnet run INPUT_PROGRAM"
           "| --interpret [--backward] [--input VTAB_FILE] [--output VTAB_FILE] [--write WRITE_FILE] [VAR=VALUE ...]"

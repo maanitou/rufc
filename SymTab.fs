@@ -9,7 +9,7 @@ let empty<'a> = Map.empty<string, 'a> |> SymTab
 
 let bind name value (SymTab tab) =
     if Map.containsKey name tab then
-      error $"{name} is already defined"
+        error $"{name} is already defined"
 
     Map.add name value tab |> SymTab
 

@@ -45,8 +45,8 @@ and invertStmt (local: bool) =
             // Call proc = Uncall inv(Proc)
             Uncall(invertProcName id, concreteArgs)
 
-    | BLocal (t, id, number) -> BDelocal (t, id, number)
-    | BDelocal (t, id, number) -> BLocal (t, id, number)
+    | BLocal (t, id, number) -> BDelocal(t, id, number)
+    | BDelocal (t, id, number) -> BLocal(t, id, number)
 
 let invertArrival =
     function
@@ -87,4 +87,5 @@ let invertProc (local: bool) (Proc (procName, pars, locals, blocks, delocals)) =
 
 let invertProgram (Program (defs, procs)) =
     let local = false // We are inverting a program, not uncalling a proc.
-    (defs, List.map (invertProc local) procs) |> Program
+    (defs, List.map (invertProc local) procs)
+    |> Program
