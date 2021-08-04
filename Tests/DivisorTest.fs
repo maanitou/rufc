@@ -24,7 +24,7 @@ let assertDivMatches div expected' =
     let keys =
         expected |> Map.toList |> List.unzip |> fst
 
-    Assert.True(keys |> List.forall expected.ContainsKey)
+    Assert.True(keys |> List.forall actual.ContainsKey)
 
     keys
     |> List.iter (fun key -> Assert.Equal(expected.Item(key), actual.Item(key)))

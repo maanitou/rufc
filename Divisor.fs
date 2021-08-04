@@ -31,23 +31,30 @@ let rec divExpr (div: Division) =
     | Empty (Var stack) -> lookup stack div
     | Empty _ -> error "cannot apply `empty` to array element"
 
-/// Returns an updated division resulting from evaluating an expression
-let rec divStatement (ftab: SymTab<Proc>) (div: Division) stmt procs : Division * (list<Identifier * Division>) =
+/// Returns an updated division resulting from evaluating a statement
+let rec divStatement
+    (ftab: SymTab<Proc>)
+    (div: Division)
+    stmt
+    procs
+    : Division * (list<Identifier * Division>) =
     match stmt with
     | AssignOp (_, Var name, e) ->
         let div' =
             match (lookup name div, divExpr div e) with
             | (S, D) -> update name D div
             | _ -> div
-
         (div', procs)
+
     | AssignOp (_, Index (name, idx), e) ->
         let div' =
             match (lookup name div, divExpr div idx, divExpr div e) with
-            | (S, D, _) -> update name D div // An array index by a dynamic index expression is dynamic [Mogensen]
-            | (S, _, D) -> update name D div // If one element of an array is (or becomes) dynamic, all elements of the array (i.. the array itself) are dynamic.
+            // An array index by a dynamic index expression is dynamic [Mogensen]
+            | (S, D, _) -> update name D div
+            // If at least one element of an array is dynamic, then all elements of the array
+            // (i.e. the array itself) are dynamic.
+            | (S, _, D) -> update name D div
             | _ -> div
-
         (div', procs)
 
     | Skip -> (div, procs)
@@ -59,9 +66,7 @@ let rec divStatement (ftab: SymTab<Proc>) (div: Division) stmt procs : Division 
             | (S, D) -> update (lval1 |> getLValId) D div
             | (D, S) -> update (lval2 |> getLValId) D div
             | (D, D) -> div
-
         (div', procs)
-
 
     | Call (procName, concreteArgs) ->
         match tryLookup procName ftab with
@@ -73,32 +78,34 @@ let rec divStatement (ftab: SymTab<Proc>) (div: Division) stmt procs : Division 
                 concreteArgs
                 |> List.map (fun id -> (id, lookup id div))
 
-            // Raw original binding of the formal parameters
+            // Raw original binding of the formal parameters.
             let rawFormalParamsDiv: Division =
                 (concreteArgsDiv, formalPars)
                 ||> List.map2 (fun (cid, d) (q, t, fid) -> (fid, d))
                 |> SymTab.ofList
 
-            // if all input arguments are static, then static arguments passed to InOut and Out parameters are allowed to remain tatic, in other terms, the division is unchanged
+            // If all input arguments are static, then static arguments passed to InOut and Out parameters are allowed to remain static, in other terms, the division is unchanged.
             let isCallDynamic: bool =
                 (concreteArgsDiv, formalPars)
                 ||> List.map2 (fun (cid, d) (q, t, fid) -> (d, q))
                 |> List.exists (fun (d, q) -> d = D && (q = In || q = InOut || q = Const))
 
+            // Division of local variables right after the procedure call.
             let divOut: Division =
                 match isCallDynamic with
                 | false ->
-                    // if the call is static, the call statement will be eliminated, leaving unaltered the divison
-                    // of the caller variables.
+                    // If the call is static, the call statement will be eliminated, leaving
+                    // the divison unaltered.
                     div
                 | true ->
                     (div, concreteArgsDiv, formalPars)
                     |||> List.fold2
                              (fun acc (cid, d) (q, _, _) ->
                                  match (d, q) with
-                                 | (_, BlockLocal) -> error "call: formal parameter cannot be BlockLocal."
+                                 | (_, BlockLocal) ->
+                                     error "call: formal parameter cannot be BlockLocal."
                                  | (_, Local) -> error "call: formal parameter cannot be Local."
-                                 | (D, _) -> update cid D acc
+                                 | (D, _) -> update cid D acc //TODO: Should be D already?
                                  | (S, Const) -> acc
                                  | (S, In) -> acc
                                  | (S, InOut) -> update cid D acc
@@ -186,7 +193,7 @@ and uniformDivProc ftab (intialParamsDiv: Division) (Proc (pid, pars, locals, bl
         (actualInitialParamsDiv, locals)
         ||> List.fold (fun tab (t, id, n) -> bind id S tab)
 
-    // // Combining division with block-locals, which are also static.
+    // Combining division with block-locals, which are also static.
     let initialDiv =
         (initialDivNoBlockLocals, getBlockLocals blocks)
         ||> List.fold (fun tab id -> bind id S tab)
@@ -200,7 +207,6 @@ and uniformDivProc ftab (intialParamsDiv: Division) (Proc (pid, pars, locals, bl
     let mutable i = 1
 
     while div' <> div do
-        //printfn $"procedure body {pid}: iteration {i}"
         i <- i + 1
         div' <- div
 
@@ -217,7 +223,9 @@ and uniformDivProc ftab (intialParamsDiv: Division) (Proc (pid, pars, locals, bl
 
 and getBlockLocals blocks =
 
-    let getLocalVarsInBlock (Block (label, _, stmts, _) as block) : Label * Identifier list * Identifier list =
+    let getLocalVarsInBlock
+        (Block (label, _, stmts, _) as block)
+        : Label * Identifier list * Identifier list =
         let (locals, delocals) =
             (([], []), stmts)
             ||> List.fold
@@ -266,7 +274,9 @@ let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) =
     // Construct the procedure table
     let ftab: SymTab<Proc> =
         procs
-        |> List.fold (fun acc (Proc (n, a, loc, b, deloc)) -> (n, Proc(n, a, loc, b, deloc)) :: acc) []
+        |> List.fold
+            (fun acc (Proc (n, a, loc, b, deloc)) -> (n, Proc(n, a, loc, b, deloc)) :: acc)
+            []
         |> Map.ofList
         |> SymTab
 
@@ -283,7 +293,8 @@ let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) =
 
             let hasNotBeenSeenBefore =
                 seenBefore
-                |> List.filter (fun (id, initDiv, _) -> id = currentProcId && initDiv = currentInitialDiv)
+                |> List.filter
+                    (fun (id, initDiv, _) -> id = currentProcId && initDiv = currentInitialDiv)
                 |> List.isEmpty
 
             if hasNotBeenSeenBefore then

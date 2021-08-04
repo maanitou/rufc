@@ -113,7 +113,7 @@ and evalStmt (ftab: SymTab<Proc>) (vtab: SymTab<Qualifier * Value>) stmt : SymTa
         | Some proc -> evalProc ftab vtab concreteArgs proc
 
     | Uncall (procName, concreteArgs) ->
-        (* Uncalling is equivalent to Calling the inverse procedure *)
+        // Uncalling is equivalent to Calling the inverse procedure
         match tryLookup procName ftab with
         | None -> raise (InterpreterError $"Uncall: procedure {procName} is not defined")
         | Some proc ->
@@ -121,12 +121,12 @@ and evalStmt (ftab: SymTab<Proc>) (vtab: SymTab<Qualifier * Value>) stmt : SymTa
             let procNameInv = invertProcName procName
 
             match tryLookup procNameInv ftab with
-            | None ->
-                (* The inversed procedure has not been added to ftab yet *)
+            | None -> // The inversed procedure has not been added to ftab yet
 
-                (* NOTE: The Inverter has two purposes:
-                  1) Invert programs in order to produce an inverted program that can be evaluated as a spearate entity
-                  2) Uncall a procedure by calling its inverse. *)
+                // NOTE: The Inverter has two purposes:
+                //   1) Invert programs in order to produce an inverted program that can be 
+                //      evaluated as a separate entity.
+                //   2) Uncall a procedure by calling its inverse.
 
                 let local = true // We are uncalling a proc, not inverting a program.
 
@@ -138,7 +138,7 @@ and evalStmt (ftab: SymTab<Proc>) (vtab: SymTab<Qualifier * Value>) stmt : SymTa
                 evalStmt ftab' vtab (Call(procNameInv, concreteArgs))
 
             | Some _ ->
-                (* If the inversed procedure has already been added to ftab, then call it *)
+                // If the inversed procedure has already been added to ftab, then call it
                 evalStmt ftab vtab (Call(procNameInv, concreteArgs))
 
 
@@ -147,11 +147,11 @@ and evalStmt (ftab: SymTab<Proc>) (vtab: SymTab<Qualifier * Value>) stmt : SymTa
         | (q, StackVal stack) ->
             match evalExpr vtab (LVal lval) with
             | IntVal n ->
-                (* update stack with pushed value *)
+                // update stack with pushed value
                 let vtab' =
                     updateLVal (Var stackName) (q, StackVal(n :: stack)) vtab
 
-                (* nullify the pushed l-val *)
+                // nullify the pushed l-val
                 let (q1, _) = lookup (getIdentifier lval) vtab'
 
                 (ftab, updateLVal lval (q1, IntVal("", 0)) vtab')
@@ -281,7 +281,7 @@ and updateLVal (lhs: LVal) (qvalue: Qualifier * Value) (vtab: SymTab<Qualifier *
         | Index (_, _) -> error "internal error: array elements cannot be stacks"
 
 
-/// Evaluate a block
+/// Evaluates a block
 and evalBlock (State (fromLabel, toLabel, ftab, vtab)) (Block (label, arrival, statements, departure)) =
 
     if (toLabel <> label) then
@@ -418,7 +418,7 @@ and bindConcreteArgs (concreteArgs: Arg list) (formalParams: Param list) =
     (procVTab, fcMap)
 
 
-/// Evaluate a procedure
+/// Evaluates a procedure
 and evalProc
     ftab
     (vtab: SymTab<Qualifier * Value>)
@@ -436,12 +436,12 @@ and evalProc
                 let (q, v) = lookup id vtab
                 (q, v, id))
 
-    (* vtabIn: Symbol table in which formal parameters are bound to the concrete argument values *)
-    (* fcMap: Maps formal parameter names to concrete argument names *)
+    // vtabIn: Symbol table in which formal parameters are bound to the concrete argument values
+    // fcMap: Maps formal parameter names to concrete argument names
     let (vtabProcIn, fcMap) =
         bindConcreteArgs concreteArgs formalParams
 
-    (* Verify that all OUT parameters are bound to a zeroed value *)
+    // Verify that all OUT parameters are bound to a zeroed value.
     (Out, formalParams)
     ||> assertParamsAreZeroed vtabProcIn
 
@@ -493,12 +493,12 @@ and evalProc
     |> List.iter (fun dloc -> assertDelocal (vtabOut' |> SymTab) dloc)
     |> ignore
 
-    (* Un-bind locals from var table *)
+    // Un-bind locals from var table
     let vtabOut =
         Map.filter (fun id (k, v) -> k <> Local) vtabOut'
         |> SymTab
 
-    (* Verify that all IN parameters are bound to a zeroed value *)
+    // Verify that all IN parameters are bound to a zeroed value
     (In, formalParams)
     ||> assertParamsAreZeroed vtabOut
 
