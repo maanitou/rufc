@@ -1,8 +1,8 @@
 module Test
 
 open System.IO
-open Xunit
 open FParsec
+open Xunit
 
 open Parser
 
@@ -16,3 +16,15 @@ let parse<'a> (p: Parser<'a>) input =
     | Failure (error, _, _) ->
         printfn $"error: {error}"
         raise (TestError $"{error}")
+
+let parseWithState<'a> (p: Parser<'a>) input =
+    match runParserOnString p [] "" input with
+    | Success (result, userState, _) -> (result, userState)
+    | Failure (error, _, _) ->
+        printfn $"error: {error}"
+        raise (TestError $"{error}")
+
+let assertEqual<'a> (expected: 'a, input: string, p: Parser<'a>) =
+    match runParserOnString p [] "" input with
+    | Success (result, _, _) -> Assert.Equal(expected, result)
+    | Failure (error, _, _) -> Assert.True(false, error)

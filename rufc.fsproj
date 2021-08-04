@@ -14,6 +14,10 @@
     <Compile Include="Inverter.fs" />
     <Compile Include="Interpreter.fs" />
     <Compile Include="Divisor.fs" />
+    <Compile Include="CodeGen.fs" />
+    <Compile Include="Optimizer.fs" />
+    <Compile Include="Specializer.fs" />
+    <Compile Include="InputParser.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

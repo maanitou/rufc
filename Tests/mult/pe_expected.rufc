@@ -1,0 +1,53 @@
+proc main(inout int b, out int prod)
+  local int v=0
+  main_a_5_t_0:
+    entry
+    goto lab1_a_5_t_0
+
+  lab1_a_5_t_0:
+    fi prod = 0 from main_a_5_t_0
+    prod += b
+    goto lab4_a_2_t_0
+
+  lab4_a_2_t_0:
+    fi prod >= b from lab1_a_5_t_0
+    skip;
+    v += b;
+    b += v;
+    v -= b / 2
+    goto lab1_a_2_t_0
+
+  lab1_a_2_t_0:
+    fi not (prod = 0) from lab4_a_2_t_0
+    goto lab4_a_1_t_0
+
+  lab4_a_1_t_0:
+    fi not (prod >= b) from lab1_a_2_t_0
+    skip;
+    v += b;
+    b += v;
+    v -= b / 2
+    goto lab1_a_1_t_0
+
+  lab1_a_1_t_0:
+    fi not (prod = 0) from lab4_a_1_t_0
+    prod += b
+    goto lab4_a_0_t_0
+
+  lab4_a_0_t_0:
+    fi prod >= b from lab1_a_1_t_0
+    skip
+    goto lab6_a_0_t_0
+
+  lab6_a_0_t_0:
+    fi prod < b + b from lab4_a_0_t_0 else lab6_a_0_t_0
+    v += b / 2;
+    b -= v;
+    v -= b
+    if b % 2 = 1 goto lab7_a_0_t_0 else lab6_a_0_t_0
+
+  lab7_a_0_t_0:
+    from lab6_a_0_t_0
+    skip
+    exit
+  delocal int v=0

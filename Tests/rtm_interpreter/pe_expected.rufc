@@ -1,0 +1,259 @@
+define  QS  1
+define  QF  6
+define  LEFT  -1
+define  STAY  -2
+define  RIGHT  -3
+define  SLASH  -4
+define  BLANK  2
+
+
+proc main(inout stack left, inout int s, inout stack right)
+  local int q=QS
+  lab0_pc_0:
+    entry
+    goto lab1_pc_0
+
+  lab1_pc_0:
+    fi q = QS from lab0_pc_0 else lab1_pc_7
+    call inst_pc_0_1(q, left, s, right)
+    if not (q = QF) goto lab1_pc_1
+
+  lab1_pc_1:
+    fi not (q = QS) from lab1_pc_0
+    call inst_pc_1_1(q, left, s, right)
+    if not (q = QF) goto lab1_pc_2
+
+  lab1_pc_2:
+    fi not (q = QS) from lab1_pc_1
+    call inst_pc_2_1(q, left, s, right)
+    if not (q = QF) goto lab1_pc_3
+
+  lab1_pc_3:
+    fi not (q = QS) from lab1_pc_2
+    call inst_pc_3_1(q, left, s, right)
+    if not (q = QF) goto lab1_pc_4
+
+  lab1_pc_4:
+    fi not (q = QS) from lab1_pc_3
+    call inst_pc_4_1(q, left, s, right)
+    if not (q = QF) goto lab1_pc_5
+
+  lab1_pc_5:
+    fi not (q = QS) from lab1_pc_4
+    call inst_pc_5_1(q, left, s, right)
+    if not (q = QF) goto lab1_pc_6
+
+  lab1_pc_6:
+    fi not (q = QS) from lab1_pc_5
+    call inst_pc_6_1(q, left, s, right)
+    if not (q = QF) goto lab1_pc_7
+
+  lab1_pc_7:
+    fi not (q = QS) from lab1_pc_6
+    call inst_pc_7_1(q, left, s, right)
+    if q = QF goto lab4_pc_0 else lab1_pc_0
+
+  lab4_pc_0:
+    from lab1_pc_7
+    exit
+  delocal int q=QF
+
+proc inst_pc_7_1(inout int q, inout stack left, inout int s, inout stack right)
+  
+  labS0:
+    entry
+    if q = 5 && s = BLANK goto labS1 else labS2
+
+  labS1:
+    from labS0
+    q += 1;
+    s += 0
+    goto labS2
+
+  labS2:
+    fi q = QF && s = BLANK from labS1 else labS0
+    exit
+  
+
+proc inst_pc_6_1(inout int q, inout stack left, inout int s, inout stack right)
+  
+  labS0:
+    entry
+    if q = 5 && s = 0 goto labS1 else labS2
+
+  labS1:
+    from labS0
+    q += -1;
+    s += 0
+    goto labS2
+
+  labS2:
+    fi q = 4 && s = 0 from labS1 else labS0
+    exit
+  
+
+proc inst_pc_5_1(inout int q, inout stack left, inout int s, inout stack right)
+  
+  labS0:
+    entry
+    if q = 4 && s = SLASH goto labS1 else labS2
+
+  labS1:
+    from labS0
+    q += 1;
+    s += 3
+    goto labS2
+
+  labS2:
+    fi q = 5 && s = LEFT from labS1 else labS0
+    if q = 4 && 1 goto labM1 else labM2
+
+  labM1:
+    from labS2
+    q += 1;
+    call pushtape(s, right);
+    call pushtape__Inv(s, left)
+    goto labM2
+
+  labM2:
+    fi q = 5 && 1 from labM1 else labS2
+    exit
+  
+
+proc pushtape__Inv(inout int s, inout stack stk)
+  
+  lab3:
+    entry
+    if empty stk goto lab1 else lab2
+
+  lab1:
+    from lab3
+    s ^= BLANK
+    goto lab0
+
+  lab2:
+    from lab3
+    pop s stk
+    goto lab0
+
+  lab0:
+    fi empty stk && s = BLANK from lab1 else lab2
+    exit
+  
+
+proc pushtape(inout int s, inout stack stk)
+  
+  lab0:
+    entry
+    if empty stk && s = BLANK goto lab1 else lab2
+
+  lab1:
+    from lab0
+    s ^= BLANK
+    goto lab3
+
+  lab2:
+    from lab0
+    push s stk
+    goto lab3
+
+  lab3:
+    fi empty stk from lab1 else lab2
+    exit
+  
+
+proc inst_pc_4_1(inout int q, inout stack left, inout int s, inout stack right)
+  
+  labS0:
+    entry
+    if q = 3 && s = BLANK goto labS1 else labS2
+
+  labS1:
+    from labS0
+    q += 1;
+    s += 0
+    goto labS2
+
+  labS2:
+    fi q = 4 && s = BLANK from labS1 else labS0
+    exit
+  
+
+proc inst_pc_3_1(inout int q, inout stack left, inout int s, inout stack right)
+  
+  labS0:
+    entry
+    if q = 3 && s = 1 goto labS1 else labS2
+
+  labS1:
+    from labS0
+    q += -1;
+    s += -1
+    goto labS2
+
+  labS2:
+    fi q = 2 && s = 0 from labS1 else labS0
+    exit
+  
+
+proc inst_pc_2_1(inout int q, inout stack left, inout int s, inout stack right)
+  
+  labS0:
+    entry
+    if q = 3 && s = 0 goto labS1 else labS2
+
+  labS1:
+    from labS0
+    q += 1;
+    s += 1
+    goto labS2
+
+  labS2:
+    fi q = 4 && s = 1 from labS1 else labS0
+    exit
+  
+
+proc inst_pc_1_1(inout int q, inout stack left, inout int s, inout stack right)
+  
+  labS0:
+    entry
+    if q = 2 && s = SLASH goto labS1 else labS2
+
+  labS1:
+    from labS0
+    q += 1;
+    s += 1
+    goto labS2
+
+  labS2:
+    fi q = 3 && s = RIGHT from labS1 else labS0
+    if q = 2 && 1 goto labM1 else labM2
+
+  labM1:
+    from labS2
+    q += 1;
+    call pushtape(s, left);
+    call pushtape__Inv(s, right)
+    goto labM2
+
+  labM2:
+    fi q = 3 && 1 from labM1 else labS2
+    exit
+  
+
+proc inst_pc_0_1(inout int q, inout stack left, inout int s, inout stack right)
+  
+  labS0:
+    entry
+    if q = QS && s = BLANK goto labS1 else labS2
+
+  labS1:
+    from labS0
+    q += 1;
+    s += 0
+    goto labS2
+
+  labS2:
+    fi q = 2 && s = BLANK from labS1 else labS0
+    exit
+  
