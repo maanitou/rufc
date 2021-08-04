@@ -13,14 +13,15 @@ let mutable write_output_filename = "output.txt"
 
 type QValue = Qualifier * Value
 
-type State(fromLabel: Label, toLabel: Label, ftab: SymTab<Proc>, vtab: SymTab<QValue>) =
-    member _.FromLabel = fromLabel
-    member _.ToLabel = toLabel
-    member _.Ftab = ftab
-    member _.Vtab = vtab
-    member _.IsHalting = toLabel.StartsWith "Halt"
+type State = 
+  { mutable FromLabel: Label;
+    mutable ToLabel: Label;
+    mutable Ftab: SymTab<Proc>;
+    mutable Vtab: SymTab<QValue> } 
 
-let isConst (vtab : SymTab<QValue>) (lvalue: LVal) =
+    member this.IsHalting() = this.ToLabel.StartsWith "Halt"
+
+let isConst (vtab: SymTab<QValue>) (lvalue: LVal) =
     let name = lvalue.Identifier
     match lookup name vtab with
     | (Const, _) -> true
@@ -80,39 +81,38 @@ let rec evalExpr (vtab: SymTab<QValue>) expr : Value =
 
 
 /// Evaluates a sequence of statements
-let rec evalStatements (ftab: SymTab<Proc>) vtab (stmts: Statement list) =
-    ((ftab, vtab), stmts)
-    ||> List.fold (fun (ft, vt) stmt -> evalStmt ft vt stmt)
+let rec evalStatements (state : State) (stmts: Statement list) = //(ftab: SymTab<Proc>) vtab  =
+    (state, stmts) ||> List.fold evalStmt
 
 /// Evaluates a statement
-and evalStmt
-    (ftab: SymTab<Proc>)
-    (vtab: SymTab<Qualifier * Value>)
-    stmt
-    : SymTab<Proc> * SymTab<QValue> =
+and evalStmt (state: State) stmt : State =
     match stmt with
-    | AssignOp (op, lval, e) -> (ftab, assign vtab op lval e)
-    | Skip -> (ftab, vtab)
+    | AssignOp (op, lval, e) ->
+        {state with Vtab = assign state.Vtab op lval e }
+    | Skip -> state
     | Swap (lval1, lval2) ->
-        match (lookup lval1.Identifier vtab, lookup lval2.Identifier vtab) with
+        match (lookup lval1.Identifier state.Vtab, lookup lval2.Identifier state.Vtab) with
         | ((Const, _), _) -> error "cannot swap const l-value"
         | (_, (Const, _)) -> error "cannot swap const l-value"
-        | (qval1, qval2) -> (ftab, updateLVal lval2 qval1 (updateLVal lval1 qval2 vtab))
+        | (qval1, qval2) ->
+          {state with Vtab = updateLVal lval2 qval1 (updateLVal lval1 qval2 state.Vtab)}
 
     | Call (procName, concreteArgs) ->
-        match tryLookup procName ftab with
+        match tryLookup procName state.Ftab with
         | None -> error $"Call: procedure {procName} is not defined"
-        | Some proc -> evalProc ftab vtab concreteArgs proc
+        | Some proc ->
+          let (ftab', vtab') = evalProc state.Ftab state.Vtab concreteArgs proc
+          {state with Ftab = ftab'; Vtab = vtab'}
 
     | Uncall (procName, concreteArgs) ->
         // Uncalling is equivalent to Calling the inverse procedure
-        match tryLookup procName ftab with
+        match tryLookup procName state.Ftab with
         | None -> raise (InterpreterError $"Uncall: procedure {procName} is not defined")
         | Some proc ->
 
             let procNameInv = invertProcName procName
 
-            match tryLookup procNameInv ftab with
+            match tryLookup procNameInv state.Ftab with
             | None -> // The inversed procedure has not been added to ftab yet
 
                 // NOTE: The Inverter has two purposes:
@@ -125,43 +125,43 @@ and evalStmt
                 let procInv = invertProc local proc
 
                 let ftab' =
-                    bind (procInv |> getProcName) procInv ftab
+                    bind (procInv |> getProcName) procInv state.Ftab
 
-                evalStmt ftab' vtab (Call(procNameInv, concreteArgs))
+                evalStmt {state with Ftab = ftab'} (Call(procNameInv, concreteArgs))
 
             | Some _ ->
                 // If the inversed procedure has already been added to ftab, then call it
-                evalStmt ftab vtab (Call(procNameInv, concreteArgs))
+                evalStmt state (Call(procNameInv, concreteArgs))
 
 
     | Push (lval, (Var stackName)) ->
-        match lookup stackName vtab with
+        match lookup stackName state.Vtab with
         | (q, StackVal stack) ->
-            match evalExpr vtab (LVal lval) with
+            match evalExpr state.Vtab (LVal lval) with
             | IntVal n ->
                 // update stack with pushed value
                 let vtab' =
-                    updateLVal (Var stackName) (q, StackVal(n :: stack)) vtab
+                    updateLVal (Var stackName) (q, StackVal(n :: stack)) state.Vtab
 
                 // nullify the pushed l-val
                 let (q1, _) = lookup lval.Identifier vtab'
 
-                (ftab, updateLVal lval (q1, IntVal("", 0)) vtab')
+                {state with Vtab = updateLVal lval (q1, IntVal("", 0)) vtab'}
 
             | _ -> error "Push: can only push integer values"
         | _ -> error "Push: can only push to a stack"
     | Push _ -> error "Push: array elements cannot be stacks"
 
     | Pop (lval1, (Var stackName)) ->
-        match evalExpr vtab (LVal lval1) with
+        match evalExpr state.Vtab (LVal lval1) with
         | IntVal (_, 0) ->
-            match lookup stackName vtab with
+            match lookup stackName state.Vtab with
             | (q, StackVal []) -> error "Pop: empty stack"
             | (q, StackVal (hd :: tl)) ->
-                let (q1, _) = lookup lval1.Identifier vtab
-                let vtab' = updateLVal lval1 (q1, IntVal hd) vtab
-
-                (ftab, updateLVal (Var stackName) (q, StackVal tl) vtab')
+                let (q1, _) = lookup lval1.Identifier state.Vtab
+                let vtab' = updateLVal lval1 (q1, IntVal hd) state.Vtab
+                {state with Vtab = updateLVal (Var stackName) (q, StackVal tl) vtab'}
+                
             | _ -> error "Pop: can only pop from a stack"
         | IntVal _ -> error "Pop: destination is not zero-cleared"
         | _ -> error "Pop: destination must be a variable or an array element"
@@ -174,7 +174,7 @@ and evalStmt
             | (tag, _) -> tag
 
         let output' =
-            match lookup name vtab with
+            match lookup name state.Vtab with
             | (_, IntVal n) -> n |> number2str
 
             | (_, ArrayVal arr) ->
@@ -195,14 +195,15 @@ and evalStmt
         else
             System.IO.File.AppendAllText(write_output_filename, $"{output}\n")
 
-        (ftab, vtab)
+        state
 
     | BLocal (t, id, n) ->
         // Bind a block-local to the vtab
-        (ftab, bind id (BlockLocal, IntVal n) vtab)
+        {state with Vtab = bind id (BlockLocal, IntVal n) state.Vtab}
+        
     | BDelocal (t, id, n) ->
         // Unbind a block-local from the vtab after asserting that it equals the expected value
-        match tryLookup id vtab with
+        match tryLookup id state.Vtab with
         | None -> error $"trying to block-delocal {id} that is not defined yet"
         | Some (BlockLocal, v) ->
             let expected = (BlockLocal, IntVal n)
@@ -213,7 +214,7 @@ and evalStmt
         | Some (_, _) ->
             error $"bdelocal: trying to block-delocal a variable {id} which is not block-local"
 
-        (ftab, unbind id vtab)
+        {state with Vtab = unbind id state.Vtab}
 
 
 /// Evaluates an assignment, op=
@@ -311,10 +312,9 @@ and evalBlock (state: State) (Block (label, arrival, statements, departure)) =
         error
             $"block-local {id} should not be present on the vtab when entering {label} from {state.FromLabel}"
 
-    let (ftab', vtab') =
-        evalStatements state.Ftab state.Vtab statements
+    let state' = evalStatements state statements
 
-    match vtab'
+    match state'.Vtab
           |> SymTab.toList
           |> List.filter (fun (id, (q, v)) -> q = BlockLocal) with
     | [] -> ()
@@ -322,17 +322,17 @@ and evalBlock (state: State) (Block (label, arrival, statements, departure)) =
         error $"block-local {id} has not been delocalled before leaving block {label}"
 
     match departure with
-    | Exit -> State(label, $"Halt", ftab', vtab')
-    | Goto lab -> State(label, lab, ftab', vtab')
+    | Exit -> {state' with FromLabel = label; ToLabel = $"Halt"}
+    | Goto lab -> {state' with FromLabel = label; ToLabel = lab}
     | IfGoto (e, lab) ->
-        match evalExpr vtab' e with
+        match evalExpr state'.Vtab e with
         | IntVal (_, 0) -> error $"In block '{label}': departure condition must evaluate to true"
-        | IntVal _ -> State(label, lab, ftab', vtab')
+        | IntVal _ -> {state' with FromLabel = label; ToLabel = lab}
         | _ -> error $"In block '{label}': departure condition must be an integer value"
     | IfGotoElse (e, labT, labF) ->
-        match evalExpr vtab' e with
-        | IntVal (_, 0) -> State(label, labF, ftab', vtab')
-        | IntVal _ -> State(label, labT, ftab', vtab')
+        match evalExpr state'.Vtab e with
+        | IntVal (_, 0) -> {state' with FromLabel = label; ToLabel = labF}
+        | IntVal _ -> {state' with FromLabel = label; ToLabel = labT}
         | _ -> error "IfGotoElse: condition must be an integer value"
 
 
@@ -340,7 +340,7 @@ and evalBlock (state: State) (Block (label, arrival, statements, departure)) =
 and jumpTo blockMap (state: State) =
     match tryLookup state.ToLabel blockMap with
     | None -> error $"jumping no non-existing label: {state.ToLabel}"
-    | Some b -> evalBlock (State(state.FromLabel, state.ToLabel, state.Ftab, state.Vtab)) b
+    | Some b -> evalBlock state b
 
 /// Creates a mapping of labels to blocks, and returns the entry point
 and createBlockMap blocks =
@@ -473,10 +473,10 @@ and evalProc
     // Create a block map which is local to the current procedure
     let (entryLabel, blockMap) = createBlockMap blocks
 
-    let mutable state =
-        State(entryLabel, entryLabel, ftab, vtabProcInWithLocals)
+    let mutable state : State =
+       {FromLabel = entryLabel; ToLabel = entryLabel; Ftab = ftab; Vtab = vtabProcInWithLocals}
 
-    while not state.IsHalting do
+    while not (state.IsHalting()) do
         state <- jumpTo blockMap state
 
     let (SymTab vtabOut') = state.Vtab
