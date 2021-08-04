@@ -173,3 +173,8 @@ let ppList lst =
     [ for entry in lst do
           yield $"{entry}" ]
     |> String.concat "\n"
+
+let pprintSet (set: Set<'a>) =
+    "["
+    + String.concat "," (Set.map string set)
+    + "]"

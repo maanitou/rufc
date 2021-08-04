@@ -1,0 +1,17 @@
+# starting state
+# q : 1;
+
+# state = program counter
+pc : 0;
+PC_MAX : 8;
+
+# transition function
+q1 : QS     2      3 3 3      4     5 5;
+s1 : BLANK SLASH  0 1 BLANK  SLASH 0 BLANK;
+s2 : BLANK RIGHT  1 0 BLANK  LEFT  0 BLANK;
+q2 : 2     3      4 2 4      5     4 QF;
+
+# tape
+#s : BLANK;
+#left  : stack ;
+#right : stack 1 1 1 1 1 0 1 0;

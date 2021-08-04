@@ -1,6 +1,7 @@
 #################
 # RTM interpreter
-#  dotnet run --project ../. rtm_interpreter.rufc --specializer --input=vtab_static.in
+#  dotnet run --project ../../. rtm_interpreter.rufc --specializer --input=vtab_static.in
+#  dotnet run --project ../../. rtm_interpreter_pe.rufc  --interpreter --input=vtab_dynamic.in
 #################
 
 define QS       1
