@@ -11,16 +11,14 @@ let error str = raise (InterpreterError str)
 
 let mutable write_output_filename = "output.txt"
 
-type State = State of (Label * Label * SymTab<Proc> * SymTab<Qualifier * Value>)
-
 type QValue = Qualifier * Value
 
-let getLabel (State (labFrom, label, _, vtab)) = label
-
-let getVtab (State (_, _, _, vtab)) = vtab
-let getFtab (State (_, _, ftab, _)) = ftab
-
-let isHalting (State (labFrom, labTo, _, vtab)) = labTo.StartsWith "Halt"
+type State(fromLabel: Label, toLabel: Label, ftab: SymTab<Proc>, vtab: SymTab<QValue>) =
+    member _.FromLabel = fromLabel
+    member _.ToLabel = toLabel
+    member _.Ftab = ftab
+    member _.Vtab = vtab
+    member _.IsHalting = toLabel.StartsWith "Halt"
 
 let getIdentifier =
     function
@@ -97,7 +95,11 @@ and evalStatements (ftab: SymTab<Proc>) vtab (stmts: Statement list) =
     ||> List.fold (fun (ft, vt) stmt -> evalStmt ft vt stmt)
 
 /// Evaluates a statement
-and evalStmt (ftab: SymTab<Proc>) (vtab: SymTab<Qualifier * Value>) stmt : SymTab<Proc> * SymTab<QValue> =
+and evalStmt
+    (ftab: SymTab<Proc>)
+    (vtab: SymTab<Qualifier * Value>)
+    stmt
+    : SymTab<Proc> * SymTab<QValue> =
     match stmt with
     | AssignOp (op, lval, e) -> (ftab, assign vtab op lval e)
     | Skip -> (ftab, vtab)
@@ -124,7 +126,7 @@ and evalStmt (ftab: SymTab<Proc>) (vtab: SymTab<Qualifier * Value>) stmt : SymTa
             | None -> // The inversed procedure has not been added to ftab yet
 
                 // NOTE: The Inverter has two purposes:
-                //   1) Invert programs in order to produce an inverted program that can be 
+                //   1) Invert programs in order to produce an inverted program that can be
                 //      evaluated as a separate entity.
                 //   2) Uncall a procedure by calling its inverse.
 
@@ -186,17 +188,13 @@ and evalStmt (ftab: SymTab<Proc>) (vtab: SymTab<Qualifier * Value>) stmt : SymTa
             | (_, IntVal n) -> n |> number2str
 
             | (_, ArrayVal arr) ->
-                [
-                    for x in arr do
-                        yield $"{x |> number2str}"
-                ]
+                [ for x in arr do
+                      yield $"{x |> number2str}" ]
                 |> String.concat " "
             | (_, StackVal stack) ->
                 "S{"
-                + ([
-                    for x in stack do
-                        yield $"{x |> number2str}"
-                   ]
+                + ([ for x in stack do
+                         yield $"{x |> number2str}" ]
                    |> String.concat " ")
                 + "}"
 
@@ -222,7 +220,8 @@ and evalStmt (ftab: SymTab<Proc>) (vtab: SymTab<Qualifier * Value>) stmt : SymTa
 
             if actual <> expected then
                 error $"bdelocal: expected {expected} does not match actual {actual}"
-        | Some (_, _) -> error $"bdelocal: trying to block-delocal a variable {id} which is not block-local"
+        | Some (_, _) ->
+            error $"bdelocal: trying to block-delocal a variable {id} which is not block-local"
 
         (ftab, unbind id vtab)
 
@@ -258,7 +257,11 @@ and assignIndex vtab op name e1 e2 =
 
 
 /// Update l-value. Used in swap, push, and pop.
-and updateLVal (lhs: LVal) (qvalue: Qualifier * Value) (vtab: SymTab<Qualifier * Value>) : SymTab<Qualifier * Value> =
+and updateLVal
+    (lhs: LVal)
+    (qvalue: Qualifier * Value)
+    (vtab: SymTab<Qualifier * Value>)
+    : SymTab<Qualifier * Value> =
     match qvalue with
     | (q, IntVal v) ->
         match lhs with
@@ -270,7 +273,8 @@ and updateLVal (lhs: LVal) (qvalue: Qualifier * Value) (vtab: SymTab<Qualifier *
                 update name (q, ArrayVal arr) vtab
             | ((_, ArrayVal _), _) -> failwith "internal error: an index must be an integer"
             | ((_, StackVal _), _) -> failwith $"internal error: stack `{name}` is used as an array"
-            | ((_, IntVal _), _) -> failwith $"internal error: variable `{name}` is used as an array"
+            | ((_, IntVal _), _) ->
+                failwith $"internal error: variable `{name}` is used as an array"
     | (q, ArrayVal v) ->
         match lhs with
         | Var name -> update name (q, ArrayVal v) vtab
@@ -282,43 +286,50 @@ and updateLVal (lhs: LVal) (qvalue: Qualifier * Value) (vtab: SymTab<Qualifier *
 
 
 /// Evaluates a block
-and evalBlock (State (fromLabel, toLabel, ftab, vtab)) (Block (label, arrival, statements, departure)) =
+and evalBlock (state: State) (Block (label, arrival, statements, departure)) =
 
-    if (toLabel <> label) then
-        error $"Inconsistent state: '{toLabel}' is different from current block label '{label}'"
+    if (state.ToLabel <> label) then
+        error
+            $"Inconsistent state: '{state.ToLabel}' is different from current block label '{label}'"
 
     match arrival with
     | Entry -> 0
-    | From lab when lab = fromLabel -> 0
-    | From lab -> error $"In block '{label}': expected to come from '{fromLabel}', but  came from {lab}"
+    | From lab when lab = state.FromLabel -> 0
+    | From lab ->
+        error $"In block '{label}': expected to come from '{state.FromLabel}', but  came from {lab}"
     | FiFrom (e, lab) ->
-        match (evalExpr vtab e) with
+        match (evalExpr state.Vtab e) with
         | IntVal (_, 0) -> error $"In block '{label}': entry condition must evaluate to true"
-        | IntVal _ when lab = fromLabel -> 0
+        | IntVal _ when lab = state.FromLabel -> 0
         | _ -> error $"In block '{label}': entry condition must be an integer value"
     | FiFromElse (e, labT, labF) ->
-        match (evalExpr vtab e, fromLabel) with
+        match (evalExpr state.Vtab e, state.FromLabel) with
         | (IntVal (_, 0), lab) when lab = labF -> 0
-        | (IntVal (_, 0), lab) -> error $"In block '{label}': expected to come from '{labF}', but  came from '{lab}'"
+        | (IntVal (_, 0), lab) ->
+            error $"In block '{label}': expected to come from '{labF}', but  came from '{lab}'"
         | (IntVal _, lab) when lab = labT -> 0
-        | (IntVal _, lab) -> error $"In block '{label}': expected to come from '{labT}', but  came from '{lab}'"
+        | (IntVal _, lab) ->
+            error $"In block '{label}': expected to come from '{labT}', but  came from '{lab}'"
         | _ -> error "FiFromElse: condition must be an integer value"
     |> ignore
 
-    match vtab
+    match state.Vtab
           |> SymTab.toList
           |> List.filter (fun (id, (q, v)) -> q = BlockLocal) with
     | [] -> ()
     | (id, (q, v)) :: _ ->
-        error $"block-local {id} should not be present on the vtab when entering {label} from {fromLabel}"
+        error
+            $"block-local {id} should not be present on the vtab when entering {label} from {state.FromLabel}"
 
-    let (ftab', vtab') = evalStatements ftab vtab statements
+    let (ftab', vtab') =
+        evalStatements state.Ftab state.Vtab statements
 
     match vtab'
           |> SymTab.toList
           |> List.filter (fun (id, (q, v)) -> q = BlockLocal) with
     | [] -> ()
-    | (id, (q, v)) :: _ -> error $"block-local {id} has not been delocalled before leaving block {label}"
+    | (id, (q, v)) :: _ ->
+        error $"block-local {id} has not been delocalled before leaving block {label}"
 
     match departure with
     | Exit -> State(label, $"Halt", ftab', vtab')
@@ -336,11 +347,10 @@ and evalBlock (State (fromLabel, toLabel, ftab, vtab)) (Block (label, arrival, s
 
 
 /// Jump to the block specified by the current state
-and jumpTo blockMap (State (labFrom, label, ftab, vtab)) =
-    match tryLookup label blockMap with
-    | None -> error $"jumping no non-existing label: {label}"
-    | Some b -> evalBlock (State(labFrom, label, ftab, vtab)) b
-
+and jumpTo blockMap (state: State) =
+    match tryLookup state.ToLabel blockMap with
+    | None -> error $"jumping no non-existing label: {state.ToLabel}"
+    | Some b -> evalBlock (State(state.FromLabel, state.ToLabel, state.Ftab, state.Vtab)) b
 
 /// Creates a mapping of labels to blocks, and returns the entry point
 and createBlockMap blocks =
@@ -388,7 +398,8 @@ and restoreVTab
 and bindConcreteArgs (concreteArgs: Arg list) (formalParams: Param list) =
 
     match (List.length concreteArgs, List.length formalParams) with
-    | (m, n) when m <> n -> error $"Number of  concrete and formal parameters do not match: {m} <> {n}"
+    | (m, n) when m <> n ->
+        error $"Number of  concrete and formal parameters do not match: {m} <> {n}"
     | _ -> ()
 
     let assertPreserveConst concrete formal =
@@ -402,7 +413,8 @@ and bindConcreteArgs (concreteArgs: Arg list) (formalParams: Param list) =
         | ((_, IntVal cv, _), (fq, Int, fid)) -> bind fid (fq, IntVal cv) tab
         | ((_, ArrayVal cv, _), (fq, Array, fid)) -> bind fid (fq, ArrayVal cv) tab
         | ((_, StackVal cv, _), (fq, Stack, fid)) -> bind fid (fq, StackVal cv) tab
-        | ((_, cv, _), (_, ft, _)) -> error $"Formal and concrete parameter type mismatch: {cv} is not an {ft}"
+        | ((_, cv, _), (_, ft, _)) ->
+            error $"Formal and concrete parameter type mismatch: {cv} is not an {ft}"
 
     let procVTab =
         (empty, concreteArgs, formalParams)
@@ -474,18 +486,19 @@ and evalProc
     let mutable state =
         State(entryLabel, entryLabel, ftab, vtabProcInWithLocals)
 
-    while not (isHalting state) do
+    while not state.IsHalting do
         state <- jumpTo blockMap state
 
-    let (SymTab vtabOut') = state |> getVtab
-    let ftabOut = state |> getFtab
+    let (SymTab vtabOut') = state.Vtab
+    let ftabOut = state.Ftab
 
     let removeTag (_, n) = ("", n)
 
     let assertDelocal tab (_, id, e) =
         match (lookup id tab, evalExpr tab e) with
         | ((_, IntVal (_, n)), IntVal (_, m)) when m = n -> ()
-        | ((_, IntVal (_, n)), IntVal (_, m)) -> error $"delocal: {id} expected to be {m} but was {n}"
+        | ((_, IntVal (_, n)), IntVal (_, m)) ->
+            error $"delocal: {id} expected to be {m} but was {n}"
         | ((_, IntVal (_, n)), _) -> error $"delocal {id}: expected value must be an integer"
         | (_, _) -> error $"delocal {id}: only integer values are authorized"
 
