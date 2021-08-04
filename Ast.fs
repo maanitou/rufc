@@ -46,6 +46,12 @@ type Value =
     | IntVal of Number
     | ArrayVal of Number []
     | StackVal of Number list
+    member this.IsZeroed =
+      match this with
+      | IntVal (_, 0) -> true
+      | ArrayVal arr -> Array.forall (fun (_, x) -> x = 0) arr
+      | StackVal stack -> stack.IsEmpty
+      | _ -> false
 
 type Identifier = string
 
@@ -60,6 +66,10 @@ type Expr =
 and LVal =
     | Var of Identifier
     | Index of Identifier * Expr
+    member this.Identifier = 
+      match this with
+      | Var id -> id
+      | Index (id, _) -> id
 
 and Statement =
     | AssignOp of AssignOp * LVal * Expr

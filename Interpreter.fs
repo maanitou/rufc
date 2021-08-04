@@ -20,34 +20,24 @@ type State(fromLabel: Label, toLabel: Label, ftab: SymTab<Proc>, vtab: SymTab<QV
     member _.Vtab = vtab
     member _.IsHalting = toLabel.StartsWith "Halt"
 
-let getIdentifier =
-    function
-    | Var name -> name
-    | Index (name, _) -> name
-
-let isConst vtab lvalue =
-    let name = getIdentifier lvalue
-
+let isConst (vtab : SymTab<QValue>) (lvalue: LVal) =
+    let name = lvalue.Identifier
     match lookup name vtab with
     | (Const, _) -> true
-    | _ -> false
-
-let isZeroed =
-    function
-    | IntVal (_, 0) -> true
-    | ArrayVal arr -> Array.forall (fun (_, x) -> x = 0) arr
-    | StackVal stack -> stack.IsEmpty
     | _ -> false
 
 /// Verify that all parameters qualified by `qual` are  bound to a zeroed value
 let assertParamsAreZeroed tab qual pars =
     match pars
-          |> List.tryFind (fun (q, _, n) -> q = qual && not (lookup n tab |> snd |> isZeroed)) with
+          |> List.tryFind
+              (fun (q, _, n) ->
+                  q = qual
+                  && not (lookup n tab |> fun (_, x: Value) -> x.IsZeroed)) with
     | None -> ()
     | Some (_, _, n') -> error $"{qual} parameter {n'} is not zeroed {lookup n' tab}"
 
 /// Evaluates an expression
-let rec evalExpr (vtab: SymTab<Qualifier * Value>) expr : Value =
+let rec evalExpr (vtab: SymTab<QValue>) expr : Value =
     match expr with
     | Constant v -> IntVal v
     | LVal (Var name) ->
@@ -90,7 +80,7 @@ let rec evalExpr (vtab: SymTab<Qualifier * Value>) expr : Value =
 
 
 /// Evaluates a sequence of statements
-and evalStatements (ftab: SymTab<Proc>) vtab (stmts: Statement list) =
+let rec evalStatements (ftab: SymTab<Proc>) vtab (stmts: Statement list) =
     ((ftab, vtab), stmts)
     ||> List.fold (fun (ft, vt) stmt -> evalStmt ft vt stmt)
 
@@ -104,7 +94,7 @@ and evalStmt
     | AssignOp (op, lval, e) -> (ftab, assign vtab op lval e)
     | Skip -> (ftab, vtab)
     | Swap (lval1, lval2) ->
-        match (lookup (getIdentifier lval1) vtab, lookup (getIdentifier lval2) vtab) with
+        match (lookup lval1.Identifier vtab, lookup lval2.Identifier vtab) with
         | ((Const, _), _) -> error "cannot swap const l-value"
         | (_, (Const, _)) -> error "cannot swap const l-value"
         | (qval1, qval2) -> (ftab, updateLVal lval2 qval1 (updateLVal lval1 qval2 vtab))
@@ -154,7 +144,7 @@ and evalStmt
                     updateLVal (Var stackName) (q, StackVal(n :: stack)) vtab
 
                 // nullify the pushed l-val
-                let (q1, _) = lookup (getIdentifier lval) vtab'
+                let (q1, _) = lookup lval.Identifier vtab'
 
                 (ftab, updateLVal lval (q1, IntVal("", 0)) vtab')
 
@@ -168,7 +158,7 @@ and evalStmt
             match lookup stackName vtab with
             | (q, StackVal []) -> error "Pop: empty stack"
             | (q, StackVal (hd :: tl)) ->
-                let (q1, _) = lookup (getIdentifier lval1) vtab
+                let (q1, _) = lookup lval1.Identifier vtab
                 let vtab' = updateLVal lval1 (q1, IntVal hd) vtab
 
                 (ftab, updateLVal (Var stackName) (q, StackVal tl) vtab')
@@ -226,7 +216,7 @@ and evalStmt
         (ftab, unbind id vtab)
 
 
-/// Evaluate an assignment, op=
+/// Evaluates an assignment, op=
 and assign vtab op lval e =
     match lval with
     | Var id -> assignVar vtab op id e
