@@ -1,0 +1,4 @@
+#!/bin/sh
+dotnet run --project ../../. schrodinger.rufc --interpreter --input=vtab_schrodinger.in
+dotnet run --project ../../. schrodinger.rufc --interpreter --backward --input=vtab_schrodinger_forward.out 
+
