@@ -10,8 +10,6 @@ type Division = SymTab<Binding>
 exception DivisorError of string
 let error str = DivisorError str |> raise
 
-let mutable globalFTab: SymTab<Proc> = empty
-
 type State = Map<string * Division, Division option>
 
 /// Returns the binding, either static or dynamic, of an expression.
@@ -39,14 +37,14 @@ let rec divStatement
     (div: Division)
     stmt
     procs
-    : Division * (list<Identifier * Division>) =
+    : Division * SymTab<Proc> * (list<Identifier * Division>) =
     match stmt with
     | AssignOp (_, Var name, e) ->
         let div' =
             match (lookup name div, divExpr div e) with
             | (S, D) -> update name D div
             | _ -> div
-        (div', procs)
+        (div', ftab, procs)
 
     | AssignOp (_, Index (name, idx), e) ->
         let div' =
@@ -57,9 +55,9 @@ let rec divStatement
             // (i.e. the array itself) are dynamic.
             | (S, _, D) -> update name D div
             | _ -> div
-        (div', procs)
+        (div', ftab, procs)
 
-    | Skip -> (div, procs)
+    | Skip -> (div, ftab, procs)
 
     | Swap (lval1, lval2) ->
         let div' =
@@ -68,7 +66,7 @@ let rec divStatement
             | (S, D) -> update (lval1 |> getLValId) D div
             | (D, S) -> update (lval2 |> getLValId) D div
             | (D, D) -> div
-        (div', procs)
+        (div', ftab, procs)
 
     | Call (procName, concreteArgs) ->
         match tryLookup procName ftab with
@@ -113,7 +111,7 @@ let rec divStatement
                                  | (S, InOut) -> update cid D acc
                                  | (S, Out) -> update cid D acc)
 
-            (divOut, (pid, rawFormalParamsDiv) :: procs)
+            (divOut, ftab, (pid, rawFormalParamsDiv) :: procs)
 
 
     | Uncall (procName, concreteArgs) ->
@@ -131,7 +129,6 @@ let rec divStatement
 
                 let ftab' = bind procInv.Name procInv ftab
 
-                globalFTab <- ftab'
                 divStatement ftab' div (Call(procNameInv, concreteArgs)) procs
 
             | Some _ ->
@@ -147,7 +144,7 @@ let rec divStatement
                 update (stack |> getLValId) D div // If a dynamic element is pushed onto the stack, the stack is  dynamic
             | _ -> div
 
-        (div', procs)
+        (div', ftab, procs)
 
     | Pop (lval, stack) ->
         let div' =
@@ -155,19 +152,19 @@ let rec divStatement
             | (S, D) -> update (lval |> getLValId) D div // Popped elements from a dynamic stack are also dynamic
             | _ -> div
 
-        (div', procs)
+        (div', ftab, procs)
 
-    | Write _ -> (div, procs)
+    | Write _ -> (div, ftab, procs)
 
-    | BLocal (t, id, number) -> (div, procs)
-    | BDelocal _ -> (div, procs)
+    | BLocal (t, id, number) -> (div, ftab, procs)
+    | BDelocal _ -> (div, ftab, procs)
 
 and divBlock (ftab: SymTab<Proc>) (div: Division) (Block (_, _, stmts, _)) procs =
-    let (div', procs') =
-        ((div, procs), stmts)
-        ||> List.fold (fun (d, p) stmt -> divStatement ftab d stmt p)
+    let (div', ftab', procs') =
+        ((div, ftab, procs), stmts)
+        ||> List.fold (fun (d, tab, p) stmt -> divStatement tab d stmt p)
 
-    (div', procs')
+    (div', ftab', procs')
 
 /// Computes the SD-division of a procedure given an initial division
 and uniformDivProc
@@ -175,7 +172,7 @@ and uniformDivProc
     ftab
     (intialParamsDiv: Division)
     (Proc (pid, pars, locals, blocks, delocals))
-    : State =
+    =
 
     let isCallDynamic: bool =
         pars
@@ -206,6 +203,7 @@ and uniformDivProc
 
     // Procedure calls that have been collected.
     let mutable procs_found: list<Identifier * Division> = []
+    let mutable ftab_mut = ftab
 
     let mutable div = initialDiv
     let mutable div' = empty
@@ -216,20 +214,24 @@ and uniformDivProc
         i <- i + 1
         div' <- div
 
-        let (div''', procs_found''') =
-            ((div, []), blocks)
-            ||> List.fold (fun (d, p) b -> divBlock ftab d b p)
+        let (div''', ftab''', procs_found''') =
+            ((div, ftab_mut, []), blocks)
+            ||> List.fold (fun (d, tab, p) b -> divBlock tab d b p)
 
         div <- div'''
+        ftab_mut <- ftab'''
         procs_found <- procs_found'''
 
 
     let state' =
         state.Add((pid, intialParamsDiv), Some div)
 
-    procs_found
-    |> List.filter (not << state.ContainsKey)
-    |> List.fold (fun acc k -> Map.add k None acc) state'
+    let new_state: State =
+        procs_found
+        |> List.filter (not << state.ContainsKey)
+        |> List.fold (fun acc k -> Map.add k None acc) state'
+
+    (ftab_mut, new_state)
 
 
 and getBlockLocals blocks =
@@ -289,14 +291,12 @@ let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) : Sta
         |> Map.ofList
         |> SymTab
 
-    globalFTab <- ftab
-
     let mainInitialDiv: Division =
         (SymTab.empty, mainProc.Params)
         ||> List.fold (fun acc (q, t, fid) -> bind fid (lookup fid initialDiv) acc)
 
 
-    let rec loop state =
+    let rec loop tab state =
         match state
               |> Map.tryPick
                   (fun k v ->
@@ -306,16 +306,16 @@ let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) : Sta
         | None -> state
         | Some (currentProcId, currentInitialDiv) ->
             let proc =
-                match tryLookup currentProcId globalFTab with
+                match tryLookup currentProcId tab with
                 | None -> error $"{currentProcId} not found in Ftab"
                 | Some p -> p
 
-            let newState =
-                uniformDivProc state globalFTab currentInitialDiv proc
+            let newFtab, newState =
+                uniformDivProc state tab currentInitialDiv proc
 
-            loop newState
+            loop newFtab newState
 
     let state: State =
         [ ((mainId, mainInitialDiv), None) ] |> Map.ofList
 
-    loop state
+    loop ftab state
