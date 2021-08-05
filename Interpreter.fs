@@ -13,11 +13,11 @@ let mutable write_output_filename = "output.txt"
 
 type QValue = Qualifier * Value
 
-type State = 
-  { mutable FromLabel: Label;
-    mutable ToLabel: Label;
-    mutable Ftab: SymTab<Proc>;
-    mutable Vtab: SymTab<QValue> } 
+type State =
+    { mutable FromLabel: Label
+      mutable ToLabel: Label
+      mutable Ftab: SymTab<Proc>
+      mutable Vtab: SymTab<QValue> }
 
     member this.IsHalting() = this.ToLabel.StartsWith "Halt"
 
@@ -81,28 +81,28 @@ let rec evalExpr (vtab: SymTab<QValue>) expr : Value =
 
 
 /// Evaluates a sequence of statements
-let rec evalStatements (state : State) (stmts: Statement list) = //(ftab: SymTab<Proc>) vtab  =
+let rec evalStatements (state: State) (stmts: Statement list) = //(ftab: SymTab<Proc>) vtab  =
     (state, stmts) ||> List.fold evalStmt
 
 /// Evaluates a statement
 and evalStmt (state: State) stmt : State =
     match stmt with
-    | AssignOp (op, lval, e) ->
-        {state with Vtab = assign state.Vtab op lval e }
+    | AssignOp (op, lval, e) -> { state with Vtab = assign state.Vtab op lval e }
     | Skip -> state
     | Swap (lval1, lval2) ->
         match (lookup lval1.Identifier state.Vtab, lookup lval2.Identifier state.Vtab) with
         | ((Const, _), _) -> error "cannot swap const l-value"
         | (_, (Const, _)) -> error "cannot swap const l-value"
         | (qval1, qval2) ->
-          {state with Vtab = updateLVal lval2 qval1 (updateLVal lval1 qval2 state.Vtab)}
+            { state with Vtab = updateLVal lval2 qval1 (updateLVal lval1 qval2 state.Vtab) }
 
     | Call (procName, concreteArgs) ->
         match tryLookup procName state.Ftab with
         | None -> error $"Call: procedure {procName} is not defined"
         | Some proc ->
-          let (ftab', vtab') = evalProc state.Ftab state.Vtab concreteArgs proc
-          {state with Ftab = ftab'; Vtab = vtab'}
+            let (ftab', vtab') =
+                evalProc state.Ftab state.Vtab concreteArgs proc
+            { state with Ftab = ftab'; Vtab = vtab' }
 
     | Uncall (procName, concreteArgs) ->
         // Uncalling is equivalent to Calling the inverse procedure
@@ -127,7 +127,7 @@ and evalStmt (state: State) stmt : State =
                 let ftab' =
                     bind (procInv |> getProcName) procInv state.Ftab
 
-                evalStmt {state with Ftab = ftab'} (Call(procNameInv, concreteArgs))
+                evalStmt { state with Ftab = ftab' } (Call(procNameInv, concreteArgs))
 
             | Some _ ->
                 // If the inversed procedure has already been added to ftab, then call it
@@ -146,7 +146,7 @@ and evalStmt (state: State) stmt : State =
                 // nullify the pushed l-val
                 let (q1, _) = lookup lval.Identifier vtab'
 
-                {state with Vtab = updateLVal lval (q1, IntVal("", 0)) vtab'}
+                { state with Vtab = updateLVal lval (q1, IntVal("", 0)) vtab' }
 
             | _ -> error "Push: can only push integer values"
         | _ -> error "Push: can only push to a stack"
@@ -159,9 +159,10 @@ and evalStmt (state: State) stmt : State =
             | (q, StackVal []) -> error "Pop: empty stack"
             | (q, StackVal (hd :: tl)) ->
                 let (q1, _) = lookup lval1.Identifier state.Vtab
-                let vtab' = updateLVal lval1 (q1, IntVal hd) state.Vtab
-                {state with Vtab = updateLVal (Var stackName) (q, StackVal tl) vtab'}
-                
+                let vtab' =
+                    updateLVal lval1 (q1, IntVal hd) state.Vtab
+                { state with Vtab = updateLVal (Var stackName) (q, StackVal tl) vtab' }
+
             | _ -> error "Pop: can only pop from a stack"
         | IntVal _ -> error "Pop: destination is not zero-cleared"
         | _ -> error "Pop: destination must be a variable or an array element"
@@ -199,8 +200,8 @@ and evalStmt (state: State) stmt : State =
 
     | BLocal (t, id, n) ->
         // Bind a block-local to the vtab
-        {state with Vtab = bind id (BlockLocal, IntVal n) state.Vtab}
-        
+        { state with Vtab = bind id (BlockLocal, IntVal n) state.Vtab }
+
     | BDelocal (t, id, n) ->
         // Unbind a block-local from the vtab after asserting that it equals the expected value
         match tryLookup id state.Vtab with
@@ -214,7 +215,7 @@ and evalStmt (state: State) stmt : State =
         | Some (_, _) ->
             error $"bdelocal: trying to block-delocal a variable {id} which is not block-local"
 
-        {state with Vtab = unbind id state.Vtab}
+        { state with Vtab = unbind id state.Vtab }
 
 
 /// Evaluates an assignment, op=
@@ -322,17 +323,17 @@ and evalBlock (state: State) (Block (label, arrival, statements, departure)) =
         error $"block-local {id} has not been delocalled before leaving block {label}"
 
     match departure with
-    | Exit -> {state' with FromLabel = label; ToLabel = $"Halt"}
-    | Goto lab -> {state' with FromLabel = label; ToLabel = lab}
+    | Exit -> { state' with FromLabel = label; ToLabel = $"Halt" }
+    | Goto lab -> { state' with FromLabel = label; ToLabel = lab }
     | IfGoto (e, lab) ->
         match evalExpr state'.Vtab e with
         | IntVal (_, 0) -> error $"In block '{label}': departure condition must evaluate to true"
-        | IntVal _ -> {state' with FromLabel = label; ToLabel = lab}
+        | IntVal _ -> { state' with FromLabel = label; ToLabel = lab }
         | _ -> error $"In block '{label}': departure condition must be an integer value"
     | IfGotoElse (e, labT, labF) ->
         match evalExpr state'.Vtab e with
-        | IntVal (_, 0) -> {state' with FromLabel = label; ToLabel = labF}
-        | IntVal _ -> {state' with FromLabel = label; ToLabel = labT}
+        | IntVal (_, 0) -> { state' with FromLabel = label; ToLabel = labF }
+        | IntVal _ -> { state' with FromLabel = label; ToLabel = labT }
         | _ -> error "IfGotoElse: condition must be an integer value"
 
 
@@ -473,8 +474,8 @@ and evalProc
     // Create a block map which is local to the current procedure
     let (entryLabel, blockMap) = createBlockMap blocks
 
-    let mutable state : State =
-       {FromLabel = entryLabel; ToLabel = entryLabel; Ftab = ftab; Vtab = vtabProcInWithLocals}
+    let mutable state: State =
+        { FromLabel = entryLabel; ToLabel = entryLabel; Ftab = ftab; Vtab = vtabProcInWithLocals }
 
     while not (state.IsHalting()) do
         state <- jumpTo blockMap state
