@@ -12,6 +12,8 @@ let error str = DivisorError str |> raise
 
 let mutable globalFTab: SymTab<Proc> = empty
 
+type State = Map<string * Division, Division option>
+
 /// Returns the binding, either static or dynamic, of an expression.
 let rec divExpr (div: Division) =
     function
@@ -127,8 +129,7 @@ let rec divStatement
 
                 let procInv = Inverter.invertProc local proc
 
-                let ftab' =
-                    bind procInv.Name procInv ftab
+                let ftab' = bind procInv.Name procInv ftab
 
                 globalFTab <- ftab'
                 divStatement ftab' div (Call(procNameInv, concreteArgs)) procs
@@ -169,7 +170,12 @@ and divBlock (ftab: SymTab<Proc>) (div: Division) (Block (_, _, stmts, _)) procs
     (div', procs')
 
 /// Computes the SD-division of a procedure given an initial division
-and uniformDivProc ftab (intialParamsDiv: Division) (Proc (pid, pars, locals, blocks, delocals)) =
+and uniformDivProc
+    (state: State)
+    ftab
+    (intialParamsDiv: Division)
+    (Proc (pid, pars, locals, blocks, delocals))
+    : State =
 
     let isCallDynamic: bool =
         pars
@@ -217,9 +223,14 @@ and uniformDivProc ftab (intialParamsDiv: Division) (Proc (pid, pars, locals, bl
         div <- div'''
         procs_found <- procs_found'''
 
-    let unprocessedProcs: list<Identifier * Division> = List.distinct procs_found
 
-    (div, unprocessedProcs)
+    let state' =
+        state.Add((pid, intialParamsDiv), Some div)
+
+    procs_found
+    |> List.filter (not << state.ContainsKey)
+    |> List.fold (fun acc k -> Map.add k None acc) state'
+
 
 and getBlockLocals blocks =
 
@@ -260,7 +271,7 @@ and getBlockLocals blocks =
 
 
 /// Computes the uniform division of a program
-let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) =
+let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) : State =
 
     let mainId = "main"
 
@@ -284,39 +295,27 @@ let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) =
         (SymTab.empty, mainProc.Params)
         ||> List.fold (fun acc (q, t, fid) -> bind fid (lookup fid initialDiv) acc)
 
-    // Loops until the list of pending procedures is emptied.
-    let rec loop seenBefore pending =
-        match pending with
-        | [] -> seenBefore
-        | (currentProcId, currentInitialDiv) :: leftPending ->
 
-            let hasNotBeenSeenBefore =
-                seenBefore
-                |> List.filter
-                    (fun (id, initDiv, _) -> id = currentProcId && initDiv = currentInitialDiv)
-                |> List.isEmpty
+    let rec loop state =
+        match state
+              |> Map.tryPick
+                  (fun k v ->
+                      match v with
+                      | None -> Some k
+                      | Some _ -> None) with
+        | None -> state
+        | Some (currentProcId, currentInitialDiv) ->
+            let proc =
+                match tryLookup currentProcId globalFTab with
+                | None -> error $"{currentProcId} not found in Ftab"
+                | Some p -> p
 
-            if hasNotBeenSeenBefore then
-                let proc =
-                    match tryLookup currentProcId globalFTab with
-                    | None -> error $"{currentProcId} not found in ftab"
-                    | Some p -> p
+            let newState =
+                uniformDivProc state globalFTab currentInitialDiv proc
 
-                let (finalDiv, newPendingProcs) =
-                    uniformDivProc globalFTab currentInitialDiv proc
+            loop newState
 
-                let seenBefore' =
-                    (currentProcId, currentInitialDiv, finalDiv)
-                    :: seenBefore
+    let state: State =
+        [ ((mainId, mainInitialDiv), None) ] |> Map.ofList
 
-                let pending' = newPendingProcs @ leftPending
-                loop seenBefore' pending'
-            else
-                loop seenBefore leftPending
-
-    let pendingProcs = [ (mainId, mainInitialDiv) ]
-    let seenBeforeProcs = []
-
-    let allProcs: list<Identifier * Division * Division> = loop seenBeforeProcs pendingProcs
-
-    allProcs
+    loop state

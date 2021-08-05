@@ -891,7 +891,15 @@ let onpeProgram (args: (Identifier * SDValue) list) (Program (defs, procs) as pr
                 | D _ -> (id, Binding.D))
         |> SymTab.ofList
 
-    let divMapping = Divisor.uniformDivision initialDiv prog
+    let divMapping =
+        Divisor.uniformDivision initialDiv prog
+        |> Map.toList
+        |> List.map
+            (fun ((x, y), z) ->
+                match z with
+                | Some z' -> (x, y, z')
+                | None -> error "Division incomplete.")
+
 
     //printfn $"\ndivMapping:"
 
