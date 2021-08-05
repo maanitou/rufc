@@ -179,7 +179,12 @@ let peBinder
                         | D _ -> (id, (qf, IntVal("", 0))))
 
         let (ftab', SymTab resVtab): SymTab<Proc> * SymTab<Qualifier * Value> =
-            Interpreter.evalProc globalFTab (vtabDummy |> Map.ofList |> SymTab) arguments proc
+            Interpreter.evalProc
+                { Interpreter.State.Default() with
+                      Ftab = globalFTab
+                      Vtab = vtabDummy |> Map.ofList |> SymTab }
+                arguments
+                proc
 
         let xxx =
             args

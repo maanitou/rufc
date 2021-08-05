@@ -9,17 +9,26 @@ exception InterpreterError of string
 
 let error str = raise (InterpreterError str)
 
-let mutable write_output_filename = "output.txt"
-
 type QValue = Qualifier * Value
+
+type Output(file: string) =
+    member _.AppendText(output: string) =
+        if file = "" then
+            printfn $"{output}\n"
+        else
+            System.IO.File.AppendAllText(file, $"{output}\n")
 
 type State =
     { mutable FromLabel: Label
       mutable ToLabel: Label
       mutable Ftab: SymTab<Proc>
-      mutable Vtab: SymTab<QValue> }
+      mutable Vtab: SymTab<QValue>
+      mutable Out: Output }
 
     member this.IsHalting() = this.ToLabel.StartsWith "Halt"
+
+    static member Default() =
+        { FromLabel = ""; ToLabel = ""; Ftab = SymTab.empty; Vtab = SymTab.empty; Out = Output("") }
 
 let isConst (vtab: SymTab<QValue>) (lvalue: LVal) =
     let name = lvalue.Identifier
@@ -100,8 +109,7 @@ and evalStmt (state: State) stmt : State =
         match tryLookup procName state.Ftab with
         | None -> error $"Call: procedure {procName} is not defined"
         | Some proc ->
-            let (ftab', vtab') =
-                evalProc state.Ftab state.Vtab concreteArgs proc
+            let (ftab', vtab') = evalProc state concreteArgs proc
             { state with Ftab = ftab'; Vtab = vtab' }
 
     | Uncall (procName, concreteArgs) ->
@@ -190,11 +198,7 @@ and evalStmt (state: State) stmt : State =
                 + "}"
 
         let output = $"{name}={output'}"
-
-        if write_output_filename = "" then
-            printfn $"{output}\n"
-        else
-            System.IO.File.AppendAllText(write_output_filename, $"{output}\n")
+        state.Out.AppendText($"{output}\n")
 
         state
 
@@ -423,8 +427,7 @@ and bindConcreteArgs (concreteArgs: Arg list) (formalParams: Param list) =
 
 /// Evaluates a procedure
 and evalProc
-    ftab
-    (vtab: SymTab<Qualifier * Value>)
+    (callerState: State)
     arguments
     (Proc (procName, formalParams, locals, blocks, delocals))
     =
@@ -436,7 +439,7 @@ and evalProc
         arguments
         |> List.map
             (fun id ->
-                let (q, v) = lookup id vtab
+                let (q, v) = lookup id callerState.Vtab
                 (q, v, id))
 
     // vtabIn: Symbol table in which formal parameters are bound to the concrete argument values
@@ -475,7 +478,10 @@ and evalProc
     let (entryLabel, blockMap) = createBlockMap blocks
 
     let mutable state: State =
-        { FromLabel = entryLabel; ToLabel = entryLabel; Ftab = ftab; Vtab = vtabProcInWithLocals }
+        { callerState with
+              FromLabel = entryLabel
+              ToLabel = entryLabel
+              Vtab = vtabProcInWithLocals }
 
     while not (state.IsHalting()) do
         state <- jumpTo blockMap state
@@ -506,16 +512,15 @@ and evalProc
     (In, formalParams)
     ||> assertParamsAreZeroed vtabOut
 
-    let updatedVTab = restoreVTab fcMap vtabOut vtab
+    let updatedVTab =
+        restoreVTab fcMap vtabOut callerState.Vtab
     (ftabOut, updatedVTab)
 
 
 /// Evaluates a program.
-let rec evalProgram writeFileName (args: (string * Value) list) (Program (defs, procs): Program) =
+let evalProgram writeFileName (args: (string * Value) list) (Program (defs, procs): Program) =
 
     System.IO.File.WriteAllText(writeFileName, "")
-
-    write_output_filename <- writeFileName
 
     // Resolve the main procedure
     let mainProc: Proc =
@@ -539,12 +544,11 @@ let rec evalProgram writeFileName (args: (string * Value) list) (Program (defs, 
         |> List.fold (fun acc p -> ((getProcName p, p) :: acc)) []
         |> SymTab.ofList
 
-    //printfn $"vtab in:\n {vtab}\n"
-
+    let state =
+        { FromLabel = ""; ToLabel = ""; Ftab = ftab; Vtab = vtab; Out = Output(writeFileName) }
     let vtabOut =
         evalProc
-            ftab
-            vtab
+            state
             (getProcParams mainProc
              |> List.map (fun (q, t, n) -> n))
             mainProc
