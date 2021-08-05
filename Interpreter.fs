@@ -545,7 +545,7 @@ let evalProgram writeFileName (args: (string * Value) list) (Program (defs, proc
         |> SymTab.ofList
 
     let state =
-        { FromLabel = ""; ToLabel = ""; Ftab = ftab; Vtab = vtab; Out = Output(writeFileName) }
+        { State.Default() with Ftab = ftab; Vtab = vtab; Out = Output(writeFileName) }
     let vtabOut =
         evalProc
             state
