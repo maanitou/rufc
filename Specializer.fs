@@ -418,7 +418,7 @@ let rec onpeStmt (ftab: SymTab<Proc>) (vtab: SymTab<QSDValue>) (currentDiv: Divi
                 let local = true
                 let procInv = Inverter.invertProc local proc
 
-                globalFTab <- bind (procInv |> getProcName) procInv ftab
+                globalFTab <- bind procInv.Name procInv ftab
                 onpeStmt globalFTab vtab currentDiv divMapping (Call(procNameInv, args))
 
             | Some _ -> onpeStmt globalFTab vtab currentDiv divMapping (Call(procNameInv, args))
@@ -872,7 +872,7 @@ let onpeProgram (args: (Identifier * SDValue) list) (Program (defs, procs) as pr
     // Construct the proc table which is passed to the main procedure.
     let ftab: SymTab<Proc> =
         procs
-        |> List.fold (fun acc p -> (p |> getProcName, p) :: acc) []
+        |> List.fold (fun acc p -> (p.Name, p) :: acc) []
         |> SymTab.ofList
 
     globalFTab <- ftab
@@ -880,8 +880,7 @@ let onpeProgram (args: (Identifier * SDValue) list) (Program (defs, procs) as pr
     // We assume that the argument names are identical to the parameter names
     // of the main procedure
     let argNames =
-        (getProcParams mainProc
-         |> List.map (fun (q, t, n) -> n))
+        (mainProc.Params |> List.map (fun (q, t, n) -> n))
 
     let initialDiv =
         args

@@ -132,8 +132,7 @@ and evalStmt (state: State) stmt : State =
 
                 let procInv = invertProc local proc
 
-                let ftab' =
-                    bind (procInv |> getProcName) procInv state.Ftab
+                let ftab' = bind procInv.Name procInv state.Ftab
 
                 evalStmt { state with Ftab = ftab' } (Call(procNameInv, concreteArgs))
 
@@ -541,16 +540,12 @@ let evalProgram writeFileName (args: (string * Value) list) (Program (defs, proc
     // Construct the procedure table
     let ftab: SymTab<Proc> =
         procs
-        |> List.fold (fun acc p -> ((getProcName p, p) :: acc)) []
+        |> List.fold (fun acc p -> ((p.Name, p) :: acc)) []
         |> SymTab.ofList
 
     let state =
         { State.Default() with Ftab = ftab; Vtab = vtab; Out = Output(writeFileName) }
     let vtabOut =
-        evalProc
-            state
-            (getProcParams mainProc
-             |> List.map (fun (q, t, n) -> n))
-            mainProc
+        evalProc state (mainProc.Params |> List.map (fun (q, t, n) -> n)) mainProc
 
     vtabOut

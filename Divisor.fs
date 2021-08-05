@@ -128,7 +128,7 @@ let rec divStatement
                 let procInv = Inverter.invertProc local proc
 
                 let ftab' =
-                    bind (procInv |> getProcName) procInv ftab
+                    bind procInv.Name procInv ftab
 
                 globalFTab <- ftab'
                 divStatement ftab' div (Call(procNameInv, concreteArgs)) procs
@@ -266,26 +266,25 @@ let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) =
 
     // Resolve the main procedure
     let mainProc: Proc =
-        match List.filter (fun (Proc (n, _, _, _, _)) -> n = mainId) procs with
+        match List.filter (fun (proc: Proc) -> proc.Name = mainId) procs with
         | [] -> error "no main procedure"
-        | hd :: [] -> hd
+        | [ hd ] -> hd
         | _ -> error "more than one main procedure"
 
     // Construct the procedure table
     let ftab: SymTab<Proc> =
         procs
-        |> List.fold
-            (fun acc (Proc (n, a, loc, b, deloc)) -> (n, Proc(n, a, loc, b, deloc)) :: acc)
-            []
+        |> List.fold (fun acc proc -> (proc.Name, proc) :: acc) []
         |> Map.ofList
         |> SymTab
 
     globalFTab <- ftab
 
     let mainInitialDiv: Division =
-        (empty, mainProc |> getProcParams)
+        (SymTab.empty, mainProc.Params)
         ||> List.fold (fun acc (q, t, fid) -> bind fid (lookup fid initialDiv) acc)
 
+    // Loops until the list of pending procedures is emptied.
     let rec loop seenBefore pending =
         match pending with
         | [] -> seenBefore

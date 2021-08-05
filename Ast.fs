@@ -107,7 +107,14 @@ type Delocal = Type * Identifier * Expr
 
 type Body = Local list * Block list * Delocal list
 
-type Proc = Proc of Identifier * Param list * Local list * Block list * Delocal list
+type Proc =
+    | Proc of Identifier * Param list * Local list * Block list * Delocal list
+    member this.Name =
+        match this with
+        | Proc (name, _, _, _, _) -> name
+    member this.Params =
+        match this with
+        | Proc (_, pars, _, _, _) -> pars
 
 type ConstDecl = Identifier * int32
 

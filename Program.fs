@@ -160,10 +160,7 @@ let main argv =
                     let mainParams =
                         match Tools.resolveMainProc prog with
                         | (None, message) -> error message
-                        | (Some p, _) ->
-                            p
-                            |> Tools.getProcParams
-                            |> List.map (fun (q, t, id) -> id)
+                        | (Some p, _) -> p.Params |> List.map (fun (q, t, id) -> id)
 
                     let dynamicVtab: (Identifier * Specializer.SDValue) list =
                         mainParams

@@ -36,12 +36,6 @@ let applyBinOp (op: BinOp) (v1: int32) (v2: int32) : int =
     | Mod -> if v1 < 0 then v1 % v2 + v2 else v1 % v2
     | Frac -> (int64) v2 * (int64) v1 >>> 32 |> int32
 
-let getProcName =
-    function
-    | Proc (id, _, _, _, _) -> id
-
-let getProcParams (Proc (_, pars, _, _, _)) = pars
-
 let getBlockLabel (Block (label, _, _, _)) = label
 
 let getBlocks (Proc (_, _, _, blocks, _)) = blocks
