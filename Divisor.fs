@@ -10,7 +10,27 @@ type Division = SymTab<Binding>
 exception DivisorError of string
 let error str = DivisorError str |> raise
 
-type State = Map<string * Division, Division option>
+type State() =
+    let mutable mapping =
+        Map.empty<string * Division, Division option>
+
+    member _.Get() = mapping
+    member this.AddKey(k) =
+        if not <| (Map.containsKey k mapping) then
+            mapping <- Map.add k None mapping
+        this
+
+    member this.Add(k, v) =
+        mapping <- Map.add k v mapping
+        this
+
+    member _.TryPickEmpty() =
+        mapping
+        |> Map.tryPick
+            (fun k v ->
+                match v with
+                | None -> Some k
+                | Some _ -> None)
 
 /// Returns the binding, either static or dynamic, of an expression.
 let rec divExpr (div: Division) =
@@ -35,7 +55,7 @@ let rec divExpr (div: Division) =
 let rec divStatement
     (ftab: SymTab<Proc>)
     (div: Division)
-    stmt
+    (stmt: Statement)
     (state: State)
     : Division * SymTab<Proc> * State =
     match stmt with
@@ -111,13 +131,7 @@ let rec divStatement
                                  | (S, InOut) -> update cid D acc
                                  | (S, Out) -> update cid D acc)
 
-            let state' =
-                if state.ContainsKey((pid, rawFormalParamsDiv)) then
-                    state
-                else
-                    state.Add((pid, rawFormalParamsDiv), None)
-
-            (divOut, ftab, state')
+            (divOut, ftab, state.AddKey((pid, rawFormalParamsDiv)))
 
 
     | Uncall (procName, concreteArgs) ->
@@ -227,9 +241,7 @@ and uniformDivProc
         ftab_mut <- ftab_mut'
         state_mut <- state_mut'
 
-
     (ftab_mut, state_mut.Add((pid, intialParamsDiv), Some div_mut))
-
 
 and getBlockLocals blocks =
 
@@ -248,24 +260,25 @@ and getBlockLocals blocks =
         (label, locals, delocals)
 
     blocks
-    |> List.map (fun b -> getLocalVarsInBlock b)
-    |> List.map
-        (fun (label, lst1, lst2) ->
-            let set1 = Set.ofList lst1
-            let set2 = Set.ofList lst2
+    |> List.collect (
+        getLocalVarsInBlock
+        >> (fun (label, locals, delocals) ->
+            let set1 = Set.ofList locals
+            let set2 = Set.ofList delocals
 
-            if Set.count set1 <> List.length lst1 then
+            if set1.Count <> locals.Length then
                 error $"block-local names must be unique within a procedure"
 
-            if Set.count set2 <> List.length lst2 then
+            if set2.Count <> delocals.Length then
                 error $"block-delocal names must be unique within a procedure"
 
             if (not (Set.isSubset set1 set2))
                || (not (Set.isSubset set2 set1)) then
                 error $"block-local and block-delocal in block {label} do not match"
 
-            lst1)
-    |> List.concat
+            locals)
+    )
+
 
 
 
@@ -293,13 +306,8 @@ let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) : Sta
         ||> List.fold (fun acc (q, t, fid) -> bind fid (lookup fid initialDiv) acc)
 
 
-    let rec loop tab state =
-        match state
-              |> Map.tryPick
-                  (fun k v ->
-                      match v with
-                      | None -> Some k
-                      | Some _ -> None) with
+    let rec loop tab (state: State) =
+        match state.TryPickEmpty() with
         | None -> state
         | Some (currentProcId, currentInitialDiv) ->
             let proc =
@@ -312,7 +320,6 @@ let uniformDivision (initialDiv: SymTab<Binding>) (Program (decls, procs)) : Sta
 
             loop newFtab newState
 
-    let state: State =
-        [ ((mainId, mainInitialDiv), None) ] |> Map.ofList
+    let state = State().AddKey((mainId, mainInitialDiv))
 
     loop ftab state

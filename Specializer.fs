@@ -892,7 +892,7 @@ let onpeProgram (args: (Identifier * SDValue) list) (Program (defs, procs) as pr
         |> SymTab.ofList
 
     let divMapping =
-        Divisor.uniformDivision initialDiv prog
+        (Divisor.uniformDivision initialDiv prog).Get()
         |> Map.toList
         |> List.map
             (fun ((x, y), z) ->

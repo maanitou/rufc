@@ -42,7 +42,7 @@ let div_mult_test () =
         |> SymTab.ofList
 
     try
-        let div = uniformDivision initialDiv prog |> Map.toList
+        let div = (uniformDivision initialDiv prog).Get() |> Map.toList
 
         let expected =
             [ ("main", [ ("a", S); ("b", D); ("prod", D); ("t", S); ("v", D) ]) ]
@@ -64,7 +64,7 @@ let div_mult_indirect_test () =
         |> SymTab.ofList
 
     try
-        let div = uniformDivision initialDiv prog |> Map.toList
+        let div = (uniformDivision initialDiv prog).Get() |> Map.toList
 
         let expected =
             [ ("main", [ ("a", S); ("b", D); ("prod", D) ])
@@ -87,7 +87,7 @@ let div_mult_with_blocals_test () =
         |> SymTab.ofList
 
     try
-        let div = uniformDivision initialDiv prog |> Map.toList
+        let div = (uniformDivision initialDiv prog).Get() |> Map.toList
 
         let expected =
             [ ("main",
@@ -110,7 +110,7 @@ let div_fib_test () =
         [ ("a", D); ("b", D); ("n", S) ] |> SymTab.ofList
 
     try
-        let div = uniformDivision initialDiv prog |> Map.toList
+        let div = (uniformDivision initialDiv prog).Get() |> Map.toList
 
         let expected =
             [ ("main", [ ("a", S); ("b", S); ("n", S) ])
@@ -134,7 +134,7 @@ let div_schrodinger_test () =
         |> SymTab.ofList
 
     try
-        let div = uniformDivision initialDiv prog |> Map.toList
+        let div = (uniformDivision initialDiv prog).Get() |> Map.toList
 
         let expected =
             [ ("main",
@@ -168,7 +168,7 @@ let div_rtm_test () =
         |> SymTab
 
     try
-        let div = uniformDivision initialDiv prog |> Map.toList
+        let div = (uniformDivision initialDiv prog).Get() |> Map.toList
 
         let expected =
             [ ("main",
