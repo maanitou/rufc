@@ -533,6 +533,8 @@ let evalProgram writeFileName (args: (string * Value) list) (Program (defs, proc
     // will be checked when executing the procedure body.
     // Also, the initial concrete argument names should match the formal parameter
     // name of the main procedure.
+    // TODO: Global constants must be qualified as CONST, not LOCAL, in contrast
+    // to the concrete parameters passed to the main procedure.
     let vtab: SymTab<Qualifier * Value> =
         List.map (fun (k, v) -> (k, (Local, v))) args
         |> SymTab.ofList
