@@ -7,6 +7,32 @@ open Parser
 open Interpreter
 
 [<Fact>]
+let interpreter_global_constants_are_immutable () =
+
+    let source =
+        @"
+  define A 7
+  proc main()
+  local int x=3
+  lab0:
+    entry
+    x += A;
+    A += 1
+    goto lab1
+  lab1:
+    from lab0
+    exit
+  delocal int x=10
+  "
+    let func =
+        fun () ->
+            Test.parse pprogram source
+            |> evalProgram "output.txt" []
+            |> ignore
+
+    Assert.Throws<InterpreterError>(func) |> ignore
+
+[<Fact>]
 let interpreter_fib_test () =
     let content =
         System.IO.File.ReadAllText(Path.Join(Test.root, "Samples", "fib", "fib.rufc"))

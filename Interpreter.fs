@@ -228,8 +228,9 @@ and assign vtab op lval e =
     | Index (id, idx) -> assignIndex vtab op id idx e
 
 and assignVar vtab op name (e: Expr) : SymTab<Qualifier * Value> =
-    match (lookup name vtab, evalExpr vtab e) with
-    | ((q1, IntVal (_, v1)), IntVal (_, v2)) ->
+    match (tryLookup name vtab, evalExpr vtab e) with
+    | None, _ -> error $"AssignVar: lhs `{name}` is not an l-value."
+    | (Some (q1, IntVal (_, v1)), IntVal (_, v2)) ->
         match q1 with
         | Const -> error $"Cannot assign the CONST variable {name}"
         | _ -> update name (q1, applyAssignOp op v1 v2 |> fun v -> IntVal("", v)) vtab
@@ -528,13 +529,11 @@ let evalProgram writeFileName (args: (string * Value) list) (Program (defs, proc
         | hd :: [] -> hd
         | _ -> error "more than one main procedure"
 
-    // Construct the vtab. Initial concrete arguments are classified as locals (we need a qualifier).
-    // Whether their values are in accordance with the formal parameter qualifiers
-    // will be checked when executing the procedure body.
-    // Also, the initial concrete argument names should match the formal parameter
-    // name of the main procedure.
-    // TODO: Global constants must be qualified as CONST, not LOCAL, in contrast
-    // to the concrete parameters passed to the main procedure.
+    // Construct the vtab. Initial concrete arguments are classified as locals (we need a
+    // qualifier). 
+    // Whether their values are in accordance with the formal parameter qualifiers will be checked
+    // when executing the procedure body. Also, the initial concrete argument names should match the
+    // formal parameter name of the main procedure.
     let vtab: SymTab<Qualifier * Value> =
         List.map (fun (k, v) -> (k, (Local, v))) args
         |> SymTab.ofList
